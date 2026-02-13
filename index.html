@@ -664,18 +664,21 @@
                 let beatFactor = 0;
                 if (window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
                     window.globalAudio.analyser.getByteFrequencyData(window.globalAudio.dataArray);
-                    // Анализируем низкие частоты (бит)
+                    // Анализируем низкие частоты (бит) более интенсивно
                     let sum = 0;
-                    const amount = 5;
+                    const amount = 10;
                     for(let i = 0; i < amount; i++) sum += window.globalAudio.dataArray[i];
                     beatFactor = (sum / amount) / 255;
                 }
 
-                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (beatFactor * 0.05);
+                // Вращение зависит от бита
+                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (beatFactor * 0.08);
                 this.particles.rotation.x += (this.mouseY * 0.005);
                 
-                const s = 1 + (beatFactor * 0.5);
+                // Пульсация размера и масштаба
+                const s = 1 + (beatFactor * 0.8);
                 this.particles.scale.set(s, s, s);
+                this.particles.material.size = 0.02 + (beatFactor * 0.05);
                 
                 this.renderer.render(this.scene, this.camera);
             }
@@ -779,6 +782,7 @@
         
         class GlobalMusicPlayer {
             constructor() {
+                window.globalAudio = this;
                 this.audio = new Audio();
                 this.audio.crossOrigin = "anonymous";
                 this.ctx = null;
