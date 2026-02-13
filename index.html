@@ -17,14 +17,13 @@
             --c-bg: #030000;
             --c-accent: #ff0015;
             --c-accent-dim: #4a0006;
-            --c-text: #e0e0e0;
+            --c-text: #ffffff;
             --c-grid: rgba(255, 0, 21, 0.05);
             --f-head: 'Syncopate', sans-serif;
             --f-mono: 'JetBrains Mono', monospace;
             --easing: cubic-bezier(0.19, 1, 0.22, 1);
-            --glass: rgba(15, 0, 2, 0.7);
-            --blur-strength: 15px;
             --glow: 0 0 20px rgba(255, 0, 21, 0.4);
+            --c-online: #00ff41;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; cursor: none !important; }
@@ -94,7 +93,7 @@
 
         /* --- MAIN UI GRID --- */
         .ui-grid {
-            position: relative; width: 100%; height: 100vh;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
             display: grid; grid-template-columns: 100px 1fr 100px; grid-template-rows: 100px 1fr 100px;
             z-index: 100; pointer-events: none;
         }
@@ -114,6 +113,7 @@
         .nav-item { 
             font-size: 10px; letter-spacing: 2px; color: #666; text-transform: uppercase; 
             transition: 0.3s; position: relative; overflow: hidden; text-decoration: none;
+            cursor: pointer !important;
         }
         .nav-item::before {
             content: ''; position: absolute; bottom: -5px; left: 0; width: 100%; height: 1px; background: var(--c-accent);
@@ -163,7 +163,7 @@
             border: 1px solid rgba(255,255,255,0.2);
             font-family: var(--f-head); font-size: 12px; letter-spacing: 2px;
             color: #fff; background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(var(--blur-strength));
+            backdrop-filter: blur(10px);
             transition: 0.4s var(--easing);
             text-transform: uppercase;
             cursor: pointer !important;
@@ -189,17 +189,19 @@
             max-width: 300px; opacity: 0.7;
         }
 
-        /* --- СЕКЦИЯ ПРОЕКТОВ --- */
-        .projects-wrapper {
-            position: relative; z-index: 100;
-            padding: 100px 100px;
-            background: linear-gradient(to bottom, transparent, #050000 20%);
+        /* --- ОКНО АРХИВА (PROJECTS) --- */
+        #archive-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.98); z-index: 14000;
+            display: none; opacity: 0;
+            padding: 8vw 5vw;
+            overflow-y: auto;
         }
+        .archive-inner { max-width: 1400px; margin: 0 auto; }
 
         .projects-header {
             font-family: var(--f-head); font-size: 3rem; color: #fff;
             margin-bottom: 60px; display: flex; align-items: center; gap: 20px;
-            text-shadow: 0 0 20px rgba(255,255,255,0.1);
         }
         .projects-header::after { content: ''; flex-grow: 1; height: 1px; background: var(--c-grid); }
 
@@ -209,46 +211,74 @@
             gap: 40px;
         }
 
+        /* ОБЫЧНЫЕ КАРТОЧКИ БЕЗ ЭФФЕКТОВ */
         .project-card {
-            background: var(--glass);
-            border: 1px solid rgba(255,255,255,0.05);
+            background: #151515;
+            border: 1px solid #333;
             padding: 40px;
             position: relative;
             overflow: hidden;
-            transition: 0.6s var(--easing);
-            backdrop-filter: blur(var(--blur-strength));
+            transition: 0.5s var(--easing);
             pointer-events: auto;
         }
         .project-card:hover {
             border-color: var(--c-accent);
-            transform: translateY(-15px) scale(1.02);
-            box-shadow: 0 30px 60px rgba(255, 0, 21, 0.1);
-            background: rgba(25, 0, 5, 0.8);
+            transform: translateY(-10px);
+            background: #1a1a1a;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
         }
         .project-card::before {
             content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 0;
-            background: var(--c-accent); transition: 0.5s;
-            box-shadow: 0 0 15px var(--c-accent);
+            background: var(--c-accent); transition: 0.4s;
         }
         .project-card:hover::before { height: 100%; }
 
-        .p-category { font-size: 10px; color: var(--c-accent); letter-spacing: 3px; margin-bottom: 15px; }
-        .p-title { font-family: var(--f-head); font-size: 1.5rem; color: #fff; margin-bottom: 15px; }
-        .p-text { font-size: 13px; color: #777; line-height: 1.6; margin-bottom: 30px; }
+        .p-category { font-size: 11px; color: #fff; background: var(--c-accent); padding: 4px 10px; display: inline-block; letter-spacing: 2px; margin-bottom: 20px; font-weight: 800; }
+        .p-title { font-family: var(--f-head); font-size: 2rem; color: #fff; margin-bottom: 15px; }
+        .p-text { font-size: 15px; color: #ccc; line-height: 1.6; margin-bottom: 30px; }
         
         .btn-detail {
-            font-size: 10px; color: #fff; font-family: var(--f-head);
+            font-size: 11px; color: #fff; font-family: var(--f-head);
             letter-spacing: 2px; text-transform: uppercase;
-            padding-bottom: 5px; border-bottom: 1px solid var(--c-accent);
+            padding: 12px 25px; border: 1px solid #444;
+            display: inline-block; transition: 0.3s;
+        }
+        .project-card:hover .btn-detail { background: #fff; color: #000; border-color: #fff; }
+
+        /* --- СТАТУС ONLINE --- */
+        .online-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: var(--c-online);
+            padding: 6px 0;
+            letter-spacing: 1px;
+            margin-top: 10px;
+            font-family: var(--f-mono);
+            text-transform: uppercase;
+        }
+        .online-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--c-online);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--c-online);
+            animation: pulse-online 1.5s infinite;
+        }
+        @keyframes pulse-online {
+            0% { opacity: 0.6; transform: scale(0.9); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0.6; transform: scale(0.9); }
         }
 
-        /* --- МОДАЛЬНОЕ ОКНО --- */
+        /* --- МОДАЛЬНОЕ ОКНО ДЕТАЛЕЙ --- */
         .project-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.92); z-index: 15000;
+            background: rgba(0,0,0,0.96); z-index: 15000;
             display: none; opacity: 0;
             padding: 5vw;
-            backdrop-filter: blur(25px);
+            backdrop-filter: blur(20px);
             overflow-y: auto;
         }
         .modal-inner {
@@ -265,43 +295,36 @@
         .modal-content {
             border-left: 2px solid var(--c-accent);
             padding-left: 40px;
-            background: linear-gradient(90deg, rgba(255,0,21,0.03), transparent);
         }
         .modal-close {
             position: fixed; top: 40px; right: 40px;
             font-family: var(--f-head); color: var(--c-accent);
             font-size: 12px; letter-spacing: 5px; cursor: pointer !important;
-            z-index: 100; text-shadow: 0 0 10px var(--c-accent);
+            z-index: 100;
         }
 
         .modal-media img {
             width: 100%;
             border: 1px solid #333;
-            filter: grayscale(1) brightness(0.8);
-            transition: 1s var(--easing);
-            box-shadow: 0 0 40px rgba(0,0,0,0.5);
             aspect-ratio: 16/9;
             object-fit: cover;
         }
-        .modal-media img:hover { filter: grayscale(0.2) brightness(1.1); transform: scale(1.02); }
 
         .viz-container {
             margin-top: 30px;
             background: rgba(0,0,0,0.8);
             padding: 20px;
             border: 1px solid #222;
-            backdrop-filter: blur(10px);
         }
-        #viz-canvas { width: 100%; height: 100px; background: #050505; border-radius: 2px; }
+        #viz-canvas { width: 100%; height: 100px; background: #050505; }
         
         .play-btn {
             background: var(--c-accent); color: #000; border: none;
             padding: 12px 25px; font-family: var(--f-head); font-size: 10px;
             margin-top: 15px; cursor: pointer !important;
             transition: 0.3s;
-            font-weight: bold;
         }
-        .play-btn:hover { background: #fff; box-shadow: 0 0 20px #fff; }
+        .play-btn:hover { background: #fff; }
 
         .p-link {
             display: inline-block; margin-top: 30px;
@@ -311,9 +334,78 @@
         }
         .p-link:hover { color: var(--c-accent); letter-spacing: 2px; }
 
+        /* --- ACCESS SYSTEM STYLES --- */
+        #access-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 18000; display: none; opacity: 0;
+            flex-direction: column; justify-content: center; align-items: center;
+        }
+        .access-box {
+            text-align: center; border: 1px solid var(--c-accent); padding: 60px;
+            background: rgba(10,0,0,0.8); backdrop-filter: blur(20px);
+        }
+        .access-input {
+            background: transparent; border: none; border-bottom: 2px solid var(--c-accent);
+            color: var(--c-accent); font-family: var(--f-mono); font-size: 48px;
+            text-align: center; width: 300px; outline: none; margin: 30px 0;
+            letter-spacing: 15px;
+        }
+        
+        #gallery-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 19000; display: none; padding: 50px;
+            overflow-y: auto;
+        }
+        .gallery-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+            max-width: 1200px; margin: 0 auto;
+        }
+        .gallery-item { width: 100%; aspect-ratio: 1; object-fit: cover; border: 1px solid #222; filter: grayscale(1); transition: 0.5s; }
+        .gallery-item:hover { filter: grayscale(0); border-color: var(--c-accent); }
+
+        /* --- INFO MODAL STYLES --- */
+        #info-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 16000;
+            display: none; opacity: 0;
+            padding: 5vw;
+            backdrop-filter: blur(30px);
+        }
+        .info-inner {
+            max-width: 900px; margin: 0 auto;
+            border: 1px solid rgba(255,0,21,0.2);
+            padding: 60px; background: rgba(5,0,0,0.8);
+            transform: scale(0.9); transition: 0.8s var(--easing);
+        }
+        #info-modal.active .info-inner { transform: scale(1); }
+        .skill-tag { padding: 5px 15px; border: 1px solid var(--c-accent); font-size: 10px; color: #fff; background: rgba(255,0,21,0.1); }
+
+        /* --- PROTOTYPES MODAL STYLES --- */
+        #proto-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.96); z-index: 17000;
+            display: none; opacity: 0;
+            padding: 5vw;
+            backdrop-filter: blur(35px);
+            align-items: center; justify-content: center;
+        }
+        .proto-slider { display: flex; align-items: center; gap: 30px; max-width: 1000px; width: 100%; position: relative; }
+        .proto-card {
+            flex: 1; background: rgba(10,0,0,0.8); border: 1px solid rgba(255,0,21,0.2);
+            padding: 40px; min-height: 500px; display: none; flex-direction: column;
+            animation: slideIn 0.5s var(--easing);
+        }
+        .proto-card.active { display: flex; }
+        .proto-v-btn { color: #444; font-size: 10px; border: 1px solid #333; padding: 5px 10px; transition: 0.3s; cursor: pointer !important; }
+        .proto-v-btn.active { color: var(--c-accent); border-color: var(--c-accent); box-shadow: 0 0 10px var(--c-accent-dim); }
+        .arrow-btn { width: 60px; height: 60px; border: 1px solid var(--c-accent); display: flex; align-items: center; justify-content: center; color: var(--c-accent); transition: 0.3s; cursor: pointer !important; }
+        .arrow-btn:hover { background: var(--c-accent); color: #000; }
+
+        @keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+
         @media (max-width: 900px) {
+            .proto-slider { flex-direction: column; }
             .modal-inner { grid-template-columns: 1fr; }
-            .project-modal { padding: 80px 20px; }
         }
     </style>
 </head>
@@ -332,22 +424,93 @@
         <div class="loader-bar-bg"><div class="loader-bar-fill" id="loader-bar"></div></div>
     </div>
 
+    <div id="access-overlay">
+        <div class="modal-close mouse-hover" onclick="closeAccess()">[ ABORT ]</div>
+        <div class="access-box" id="access-container">
+            <div class="loader-text">ENTER SECURITY KEY</div>
+            <input type="text" maxlength="6" class="access-input" id="code-input" placeholder="000000">
+            <div class="code-block" id="access-status">AWAITING INPUT (ATTEMPTS: 3)</div>
+        </div>
+    </div>
+
+    <div id="info-modal">
+        <div class="modal-close mouse-hover" onclick="closeInfo()">[ CLOSE ]</div>
+        <div class="info-inner">
+            <div class="loader-text">SYSTEM USER PROFILE</div>
+            <h2 class="p-title" style="font-size: 3rem; margin: 20px 0;">НИКИТА TIMCHENKO</h2>
+            <div class="p-text">
+                <p>Мне 16 лет. Game-Developer, Разработчик приложений, UI/UX Дизайнер, Продюсер. <br><br>
+                Я увлекаюсь этим всем как хобби, не как работа, но могу исполнять некоторые вещи на заказ как дизайн. <br><br>
+                Я учусь в 8А классе 4 школы, ранее учился в г.Тюмень 83 гимназии. <br><br>
+                Данный сайт был разработан на HTML, CSS, JavaScript, OpenGL и др.</p>
+            </div>
+            <div style="margin-top: 40px; display: flex; flex-wrap: wrap; gap: 10px;">
+                <span class="skill-tag">Python</span>
+                <span class="skill-tag">Kotlin</span>
+                <span class="skill-tag">C#</span>
+                <span class="skill-tag">Godot</span>
+                <span class="skill-tag">C++</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="proto-modal">
+        <div class="modal-close mouse-hover" onclick="closePrototypes()">[ EXIT ]</div>
+        <div class="proto-slider">
+            <div class="arrow-btn mouse-hover" onclick="changeProject(-1)">&lt;</div>
+            
+            <div class="proto-card active" id="proto-hono">
+                <h3 class="p-title">HONO AI</h3>
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;" id="hono-versions"></div>
+                <div class="p-text" id="hono-log"></div>
+            </div>
+
+            <div class="proto-card" id="proto-aurora">
+                <h3 class="p-title">AURORA</h3>
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;" id="aurora-versions"></div>
+                <div class="p-text" id="aurora-log"></div>
+            </div>
+
+            <div class="arrow-btn mouse-hover" onclick="changeProject(1)">&gt;</div>
+        </div>
+    </div>
+
+    <div id="archive-modal">
+        <div class="modal-close mouse-hover" onclick="closeArchive()">[ CLOSE ]</div>
+        <div class="archive-inner">
+            <h2 class="projects-header">PROJECTS_LOG</h2>
+            <div class="projects-grid" id="grid-container"></div>
+        </div>
+    </div>
+
+    <div id="gallery-overlay">
+        <div class="modal-close mouse-hover" onclick="location.reload()">[ TERMINATE ]</div>
+        <div class="gallery-grid">
+            <img src="img/1.jpg" class="gallery-item">
+            <img src="img/2.jpg" class="gallery-item">
+            <img src="img/3.jpg" class="gallery-item">
+            <img src="img/4.jpg" class="gallery-item">
+            <img src="img/5.jpg" class="gallery-item">
+            <img src="img/6.jpg" class="gallery-item">
+        </div>
+    </div>
+
     <div class="project-modal" id="modal">
-        <div class="modal-close mouse-hover" onclick="closeModal()">[ CLOSE_CONNECTION ]</div>
+        <div class="modal-close mouse-hover" onclick="closeModal()">[ CLOSE ]</div>
         <div class="modal-inner">
             <div class="modal-media">
-                <img id="modal-img" src="" alt="Project Preview">
+                <img id="modal-img" src="" alt="Preview">
                 <div id="player-ui" class="viz-container" style="display: none;">
                     <canvas id="viz-canvas"></canvas>
-                    <button class="play-btn mouse-hover" id="audio-trigger">INIT_AUDIO_PULSE</button>
+                    <button class="play-btn mouse-hover" id="audio-trigger">INIT AUDIO PULSE</button>
                     <audio id="main-audio"></audio>
                 </div>
             </div>
             <div class="modal-content">
-                <div class="p-category" id="modal-cat">PROJECT_DATA</div>
-                <h2 class="p-title" id="modal-title" style="font-size: 3rem;">TITLE</h2>
-                <p class="p-text" id="modal-desc" style="font-size: 1.1rem; color: #aaa;">Description loading...</p>
-                <a href="#" id="modal-link" target="_blank" class="p-link mouse-hover">VIEW_LIVE_DEPLOYMENT →</a>
+                <div class="p-category" id="modal-cat">DATA</div>
+                <h2 class="p-title" id="modal-title">TITLE</h2>
+                <p class="p-text" id="modal-desc"></p>
+                <a href="#" id="modal-link" target="_blank" class="p-link mouse-hover">VIEW LIVE →</a>
             </div>
         </div>
     </div>
@@ -356,24 +519,24 @@
         <div class="header-top">
             <div class="logo mouse-hover">RAW<span>.CORE</span></div>
             <nav class="nav-links">
-                <a href="#projects" class="nav-item mouse-hover">Архив</a>
-                <div class="nav-item mouse-hover">Прототипы</div>
-                <div class="nav-item mouse-hover">Инфо</div>
-                <div class="nav-item mouse-hover" style="color: var(--c-accent);">[ ACCESS ]</div>
+                <div class="nav-item mouse-hover" onclick="openArchive()">Архив</div>
+                <div class="nav-item mouse-hover" onclick="openPrototypes()">Прототипы</div>
+                <div class="nav-item mouse-hover" onclick="openInfo()">Инфо</div>
+                <div class="nav-item mouse-hover" style="color: var(--c-accent);" onclick="openAccess()">[ ACCESS ]</div>
             </nav>
         </div>
 
         <div class="content-center">
-            <div class="hero-label">NIKITA TIMCHENKO // PORTFOLIO_2026</div>
+            <div class="hero-label">NIKITA TIMCHENKO // 2026</div>
             <div style="position: relative;">
-                <h1 class="hero-title" data-text="ДОБРО ПОЖАЛОВАТЬ">ДОБРО ПОЖАЛОВАТЬ</h1>
-                <h1 class="hero-title solid" id="hero-text-1">ДОБРО ПОЖАЛОВАТЬ</h1>
+                <h1 class="hero-title">ДОБРО ПОЖАЛОВАТЬ</h1>
+                <h1 class="hero-title solid">ДОБРО ПОЖАЛОВАТЬ</h1>
             </div>
             <div style="position: relative;">
-                <h1 class="hero-title" data-text="В СИСТЕМУ">В СИСТЕМУ</h1>
-                <h1 class="hero-title solid" id="hero-text-2">В СИСТЕМУ</h1>
+                <h1 class="hero-title">В СИСТЕМУ</h1>
+                <h1 class="hero-title solid">В СИСТЕМУ</h1>
             </div>
-            <p class="hero-desc">Портфолио UI/UX Дизайна, музыки и кода в котором предоставлено 3 проекта.</p>
+            <p class="hero-desc">Портфолио UI/UX Дизайна, музыки и кода.</p>
             <button class="btn-main mouse-hover" id="explore-btn">Запустить Проект</button>
         </div>
 
@@ -383,42 +546,23 @@
         </div>
     </div>
 
-    <section class="projects-wrapper" id="projects">
-        <h2 class="projects-header">PROJECTS_LOG</h2>
-        <div class="projects-grid" id="grid-container"></div>
-    </section>
-
     <script>
-        // ДАННЫЕ С ПРАВИЛЬНЫМИ ПУТЯМИ И ОГРАНИЧЕНИЕМ ПЛЕЕРА
         const PROJECTS_DATA = [
-            {
-                title: 'lumière',
-                cat: 'Song',
-                desc: 'direle создано в FL Studio',
-                img: 'img/project1.jpg',
-                audio: 'audio/lumière.mp3',
-                link: '#',
-                hasPlayer: true
-            },
-            {
-                title: 'Aurora',
-                cat: 'Messenger',
-                desc: 'Мессенджер Аврора с множеством функций, конфидицеальностью и криптовалютой.',
-                img: 'img/project2.jpg',
-                audio: 'audio/track2.mp3',
-                link: '#',
-                hasPlayer: false
-            },
-            {
-                title: 'Hono AI',
-                cat: 'AI Bot',
-                desc: 'ИИ Бот разработанный RAW.CORE по совместительству с (?), основана на множествах моделях с использованием системных промптов. @AI_Hono',
-                img: 'img/project3.jpg',
-                audio: 'audio/track3.mp3',
-                link: '#',
-                hasPlayer: false
-            }
+            { title: 'lumière', cat: 'Song', desc: 'direle создано в FL Studio', img: 'img/project1.jpg', audio: 'audio/lumière.mp3', link: '#', hasPlayer: true, showStatus: false },
+            { title: 'Aurora', cat: 'Messenger', desc: 'Мессенджер Аврора с множеством функций, конфидицеальностью и криптовалютой.', img: 'img/project2.jpg', audio: 'audio/track2.mp3', link: '#', hasPlayer: false, showStatus: true },
+            { title: 'Hono AI', cat: 'AI Bot', desc: 'ИИ Бот разработанный RAW.CORE по совместительству с (?), основана на множествах моделях с использованием системных промптов.', img: 'img/project3.jpg', audio: 'audio/track3.mp3', link: '#', hasPlayer: false, showStatus: true }
         ];
+
+        const PROTO_DATA = {
+            hono: [
+                { v: "v0.15", log: ["Добавлена поддержка долгосрочной памяти", "Стиль общения под пользователя"] },
+                { v: "v1.05", log: ["Добавление 6 модулей для Памяти, Размышления и Сканера фото", "Установка на личный ТГ"] }
+            ],
+            aurora: [
+                { v: "v0.01", log: ["Открытие Бета-тестирования"] },
+                { v: "v0.20", log: ["Установка безопасной сети SoT3Qt", "PtP шифрование"] }
+            ]
+        };
 
         class Core {
             constructor() {
@@ -426,11 +570,7 @@
                 this.ui = new UI();
                 this.cursor = new Cursor();
                 this.audio = new AudioModule();
-                this.loader = new Loader(this.init.bind(this));
-            }
-            init() {
-                this.world.animate();
-                this.ui.reveal();
+                this.loader = new Loader(() => { this.world.animate(); this.ui.reveal(); });
             }
         }
 
@@ -440,149 +580,47 @@
                 this.scene = new THREE.Scene();
                 this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
                 this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-                this.setupRenderer();
-                this.createObjects();
-                this.addEvents();
-                this.mouseX = 0; this.mouseY = 0;
-            }
-            setupRenderer() {
                 this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 this.container.appendChild(this.renderer.domElement);
                 this.camera.position.z = 5;
-            }
-            createObjects() {
-                const geometry = new THREE.BufferGeometry();
-                const count = 4000;
-                const positions = new Float32Array(count * 3);
-                for(let i = 0; i < count; i++) {
-                    positions[i*3] = (Math.random()-0.5)*12;
-                    positions[i*3+1] = (Math.random()-0.5)*12;
-                    positions[i*3+2] = (Math.random()-0.5)*12;
-                }
-                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-                this.particles = new THREE.Points(geometry, new THREE.PointsMaterial({ 
-                    size: 0.02, color: 0xff0015, transparent: true, opacity: 0.5 
-                }));
+                const geo = new THREE.BufferGeometry();
+                const pos = new Float32Array(4000 * 3);
+                for(let i=0; i<12000; i++) pos[i] = (Math.random()-0.5)*15;
+                geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+                this.particles = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.02, color: 0xff0015, transparent: true, opacity: 0.5 }));
                 this.scene.add(this.particles);
-            }
-            addEvents() {
-                window.addEventListener('resize', () => {
-                    this.camera.aspect = window.innerWidth / window.innerHeight;
-                    this.camera.updateProjectionMatrix();
-                    this.renderer.setSize(window.innerWidth, window.innerHeight);
-                });
-                document.addEventListener('mousemove', (e) => {
-                    this.mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-                    this.mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
-                });
             }
             animate() {
                 requestAnimationFrame(this.animate.bind(this));
                 this.particles.rotation.y += 0.001;
-                this.particles.rotation.x += (this.mouseY * 0.1 - this.particles.rotation.x) * 0.05;
                 this.renderer.render(this.scene, this.camera);
-            }
-        }
-
-        class AudioModule {
-            constructor() {
-                this.ctx = null;
-                this.analyser = null;
-                this.audioTag = document.getElementById('main-audio');
-                this.isPlaying = false;
-                this.canvas = document.getElementById('viz-canvas');
-                this.ctx2d = this.canvas.getContext('2d');
-            }
-            init(path) {
-                if(!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    this.analyser = this.ctx.createAnalyser();
-                    const source = this.ctx.createMediaElementSource(this.audioTag);
-                    source.connect(this.analyser);
-                    this.analyser.connect(this.ctx.destination);
-                }
-                if(this.ctx.state === 'suspended') this.ctx.resume();
-                
-                this.audioTag.src = path;
-                this.audioTag.play().then(() => {
-                    this.isPlaying = true;
-                    this.render();
-                }).catch(e => console.log("Audio blocked by browser"));
-            }
-            render() {
-                if(!this.isPlaying) return;
-                requestAnimationFrame(this.render.bind(this));
-                const data = new Uint8Array(this.analyser.frequencyBinCount);
-                this.analyser.getByteFrequencyData(data);
-                this.ctx2d.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                this.ctx2d.fillStyle = '#ff0015';
-                const barWidth = (this.canvas.width / 60);
-                for(let i=0; i<60; i++) {
-                    let h = data[i] / 2;
-                    this.ctx2d.fillRect(i*barWidth, 100-h, barWidth-1, h);
-                }
-            }
-            stop() {
-                this.audioTag.pause();
-                this.isPlaying = false;
-            }
-        }
-
-        class Loader {
-            constructor(callback) {
-                this.callback = callback;
-                this.bar = document.getElementById('loader-bar');
-                this.screen = document.getElementById('loader');
-                this.progress = 0;
-                this.start();
-            }
-            start() {
-                const interval = setInterval(() => {
-                    this.progress += 2;
-                    this.bar.style.width = this.progress + '%';
-                    if(this.progress >= 100) {
-                        clearInterval(interval);
-                        setTimeout(() => this.finish(), 500);
-                    }
-                }, 40);
-            }
-            finish() {
-                gsap.to(this.screen, { yPercent: -100, duration: 1.2, ease: "power4.inOut", onComplete: () => {
-                    this.screen.style.display = 'none';
-                    this.callback();
-                }});
             }
         }
 
         class UI {
             constructor() {
+                this.currentProtoIndex = 0;
                 this.renderProjects();
-                document.getElementById('explore-btn').onclick = () => {
-                    gsap.to(window, { scrollTo: "#projects", duration: 2, ease: "power4.inOut" });
-                };
+                document.getElementById('explore-btn').onclick = openArchive;
+                document.getElementById('code-input').addEventListener('input', (e) => {
+                    if(e.target.value === '170310') unlockSecret();
+                });
             }
             renderProjects() {
                 const container = document.getElementById('grid-container');
                 PROJECTS_DATA.forEach(p => {
                     const card = document.createElement('div');
                     card.className = 'project-card mouse-hover';
-                    card.innerHTML = `
-                        <div class="p-category">SYSTEM_ACCESS // ${p.cat}</div>
-                        <h3 class="p-title">${p.title}</h3>
-                        <p class="p-text">${p.desc}</p>
-                        <div class="btn-detail">OPEN_STREAM</div>
-                    `;
+                    const status = p.showStatus ? `<div class="online-status"><div class="online-dot"></div>online</div>` : '';
+                    card.innerHTML = `<div class="p-category">${p.cat}</div><h3 class="p-title">${p.title}</h3><p class="p-text">${p.desc}</p>${status}<div class="btn-detail" style="margin-top:20px;">OPEN STREAM</div>`;
                     card.onclick = () => openModal(p);
                     container.appendChild(card);
                 });
             }
             reveal() {
                 document.getElementById('canvas-container').style.opacity = 1;
-                gsap.from('.hero-title', { opacity: 0, y: 50, stagger: 0.3, duration: 1 });
-                setInterval(() => {
-                    document.getElementById('fps-counter').innerText = Math.floor(58 + Math.random() * 4);
-                }, 500);
+                gsap.from('.hero-title', { opacity: 0, y: 50, stagger: 0.3 });
+                setInterval(() => document.getElementById('fps-counter').innerText = Math.floor(58+Math.random()*4), 500);
             }
         }
 
@@ -594,31 +632,88 @@
                     gsap.to(this.dot, { x: e.clientX, y: e.clientY, duration: 0 });
                     gsap.to(this.circle, { x: e.clientX, y: e.clientY, duration: 0.15 });
                 });
+                document.addEventListener('mouseenter', (e) => {
+                    if(e.target.classList.contains('mouse-hover')) this.circle.classList.add('hovered');
+                }, true);
+                document.addEventListener('mouseleave', (e) => {
+                    if(e.target.classList.contains('mouse-hover')) this.circle.classList.remove('hovered');
+                }, true);
             }
         }
 
-        function openModal(project) {
-            const modal = document.getElementById('modal');
-            document.getElementById('modal-title').innerText = project.title;
-            document.getElementById('modal-img').src = project.img;
-            document.getElementById('modal-desc').innerText = project.desc;
-            
-            const playerUI = document.getElementById('player-ui');
-            playerUI.style.display = project.hasPlayer ? 'block' : 'none';
-            
-            const trigger = document.getElementById('audio-trigger');
-            trigger.onclick = () => app.audio.init(project.audio);
-
-            modal.style.display = 'block';
-            setTimeout(() => modal.classList.add('active'), 10);
-            gsap.to(modal, { opacity: 1, duration: 0.5 });
+        class AudioModule {
+            constructor() {
+                this.ctx = null;
+                this.audio = document.getElementById('main-audio');
+            }
+            init(path) {
+                if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.audio.src = path;
+                this.audio.play();
+            }
+            stop() { this.audio.pause(); }
         }
 
-        function closeModal() {
-            const modal = document.getElementById('modal');
-            app.audio.stop();
-            modal.classList.remove('active');
-            gsap.to(modal, { opacity: 0, duration: 0.5, onComplete: () => modal.style.display = 'none' });
+        class Loader {
+            constructor(cb) {
+                let p = 0;
+                const int = setInterval(() => {
+                    p += 2;
+                    document.getElementById('loader-bar').style.width = p + '%';
+                    if(p >= 100) {
+                        clearInterval(int);
+                        gsap.to('#loader', { yPercent: -100, duration: 1, onComplete: cb });
+                    }
+                }, 30);
+            }
+        }
+
+        function openArchive() { document.getElementById('archive-modal').style.display = 'block'; gsap.to('#archive-modal', { opacity: 1 }); }
+        function closeArchive() { gsap.to('#archive-modal', { opacity: 0, onComplete: () => document.getElementById('archive-modal').style.display = 'none' }); }
+        
+        function openInfo() { document.getElementById('info-modal').style.display = 'block'; setTimeout(() => document.getElementById('info-modal').classList.add('active'), 10); gsap.to('#info-modal', { opacity: 1 }); }
+        function closeInfo() { document.getElementById('info-modal').classList.remove('active'); gsap.to('#info-modal', { opacity: 0, onComplete: () => document.getElementById('info-modal').style.display = 'none' }); }
+        
+        function openPrototypes() { document.getElementById('proto-modal').style.display = 'flex'; gsap.to('#proto-modal', { opacity: 1 }); renderVersions('hono'); renderVersions('aurora'); }
+        function closePrototypes() { gsap.to('#proto-modal', { opacity: 0, onComplete: () => document.getElementById('proto-modal').style.display = 'none' }); }
+        
+        function openAccess() { document.getElementById('access-overlay').style.display = 'flex'; gsap.to('#access-overlay', { opacity: 1 }); document.getElementById('code-input').focus(); }
+        function closeAccess() { gsap.to('#access-overlay', { opacity: 0, onComplete: () => document.getElementById('access-overlay').style.display = 'none' }); }
+        function unlockSecret() { document.getElementById('access-overlay').style.display = 'none'; document.getElementById('gallery-overlay').style.display = 'block'; }
+
+        function openModal(p) {
+            const m = document.getElementById('modal');
+            document.getElementById('modal-title').innerText = p.title;
+            document.getElementById('modal-desc').innerText = p.desc;
+            document.getElementById('modal-img').src = p.img;
+            document.getElementById('player-ui').style.display = p.hasPlayer ? 'block' : 'none';
+            document.getElementById('audio-trigger').onclick = () => app.audio.init(p.audio);
+            m.style.display = 'block'; setTimeout(() => m.classList.add('active'), 10); gsap.to(m, { opacity: 1 });
+        }
+        function closeModal() { app.audio.stop(); document.getElementById('modal').classList.remove('active'); gsap.to('#modal', { opacity: 0, onComplete: () => document.getElementById('modal').style.display = 'none' }); }
+
+        function changeProject(dir) {
+            const cards = ['proto-hono', 'proto-aurora'];
+            document.getElementById(cards[app.ui.currentProtoIndex]).classList.remove('active');
+            app.ui.currentProtoIndex = (app.ui.currentProtoIndex + dir + cards.length) % cards.length;
+            document.getElementById(cards[app.ui.currentProtoIndex]).classList.add('active');
+        }
+
+        function renderVersions(proj) {
+            const nav = document.getElementById(`${proj}-versions`);
+            nav.innerHTML = '';
+            PROTO_DATA[proj].forEach((d, i) => {
+                const b = document.createElement('div');
+                b.className = 'proto-v-btn mouse-hover';
+                b.innerText = d.v;
+                b.onclick = () => {
+                    nav.querySelectorAll('.proto-v-btn').forEach(x => x.classList.remove('active'));
+                    b.classList.add('active');
+                    document.getElementById(`${proj}-log`).innerHTML = d.log.map(l => `• ${l}`).join('<br>');
+                };
+                nav.appendChild(b);
+                if(i===0) b.click();
+            });
         }
 
         const app = new Core();
