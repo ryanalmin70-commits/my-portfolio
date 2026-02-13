@@ -407,6 +407,48 @@
             .proto-slider { flex-direction: column; }
             .modal-inner { grid-template-columns: 1fr; }
         }
+
+        /* --- NEW MUSIC WIDGET STYLES --- */
+        .music-widget-container {
+            position: fixed; bottom: 30px; right: 30px; z-index: 20000;
+            display: flex; flex-direction: column; align-items: flex-end;
+            pointer-events: auto;
+        }
+        
+        .music-toggle {
+            width: 50px; height: 50px; border: 1px solid var(--c-accent);
+            border-radius: 50%; background: #000;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--c-accent); font-size: 20px; cursor: pointer !important;
+            box-shadow: 0 0 15px rgba(255,0,21,0.2);
+            transition: 0.3s var(--easing);
+        }
+        .music-toggle:hover {
+            transform: scale(1.1); box-shadow: 0 0 25px rgba(255,0,21,0.5); background: var(--c-accent-dim);
+        }
+
+        .music-expanded {
+            width: 250px; background: rgba(5,0,0,0.9);
+            border: 1px solid var(--c-accent);
+            margin-bottom: 15px; padding: 20px;
+            backdrop-filter: blur(10px);
+            display: none; opacity: 0;
+            transform: translateY(20px);
+            transition: 0.4s var(--easing);
+        }
+        .music-expanded.active { display: block; opacity: 1; transform: translateY(0); }
+
+        .m-title { font-size: 12px; color: #fff; margin-bottom: 5px; font-weight: bold; }
+        .m-artist { font-size: 10px; color: #666; margin-bottom: 15px; }
+        
+        #mini-viz-canvas { width: 100%; height: 50px; background: #111; margin-bottom: 15px; border-bottom: 1px solid #333; }
+        
+        .m-controls { display: flex; justify-content: space-between; align-items: center; }
+        .m-btn { 
+            background: transparent; border: 1px solid #333; color: #fff; 
+            padding: 5px 15px; font-size: 10px; cursor: pointer !important; transition: 0.2s; 
+        }
+        .m-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
     </style>
 </head>
 <body>
@@ -546,9 +588,22 @@
         </div>
     </div>
 
+    <div class="music-widget-container">
+        <div class="music-expanded" id="music-panel">
+            <div class="m-title" id="m-track-title">Lumière</div>
+            <div class="m-artist">RAW.CORE AUDIO</div>
+            <canvas id="mini-viz-canvas"></canvas>
+            <div class="m-controls">
+                <div class="m-btn mouse-hover" onclick="globalAudio.togglePlay()" id="play-pause-btn">PLAY</div>
+                <div class="m-btn mouse-hover" onclick="globalAudio.next()">NEXT &gt;</div>
+            </div>
+        </div>
+        <div class="music-toggle mouse-hover" onclick="globalAudio.togglePanel()">♫</div>
+    </div>
+
     <script>
         const PROJECTS_DATA = [
-            { title: 'lumière', cat: 'Song', desc: 'direle создано в FL Studio', img: 'img/project1.jpg', audio: 'audio/lumière.mp3', link: '#', hasPlayer: true, showStatus: false },
+            // Lumière card removed as requested
             { title: 'Aurora', cat: 'Messenger', desc: 'Мессенджер Аврора с множеством функций, конфидицеальностью и криптовалютой.', img: 'img/project2.jpg', audio: 'audio/track2.mp3', link: '#', hasPlayer: false, showStatus: true },
             { title: 'Hono AI', cat: 'AI Bot', desc: 'ИИ Бот разработанный RAW.CORE по совместительству с (?), основана на множествах моделях с использованием системных промптов.', img: 'img/project3.jpg', audio: 'audio/track3.mp3', link: '#', hasPlayer: false, showStatus: true }
         ];
@@ -563,6 +618,11 @@
                 { v: "v0.20", log: ["Установка безопасной сети SoT3Qt", "PtP шифрование"] }
             ]
         };
+
+        const PLAYLIST = [
+            { title: "Lumière", src: "audio/lumière.mp3" },
+            { title: "Aurora Theme", src: "audio/track2.mp3" }
+        ];
 
         class Core {
             constructor() {
@@ -601,9 +661,17 @@
             animate() {
                 requestAnimationFrame(this.animate.bind(this));
                 
-                // Движение фона за курсором
-                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005);
+                let bass = 0;
+                if(window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
+                    bass = window.globalAudio.dataArray[0] / 255; 
+                }
+
+                // Движение фона за курсором + Визуализация
+                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (bass * 0.02);
                 this.particles.rotation.x += (this.mouseY * 0.005);
+                
+                const s = 1 + bass * 0.5;
+                this.particles.scale.set(s, s, s);
                 
                 this.renderer.render(this.scene, this.camera);
             }
@@ -704,6 +772,97 @@
                 this.isAnimating = false;
             }
         }
+        
+        // --- NEW GLOBAL AUDIO PLAYER CLASS ---
+        class GlobalMusicPlayer {
+            constructor() {
+                this.audio = new Audio();
+                this.audio.crossOrigin = "anonymous";
+                this.ctx = null;
+                this.analyser = null;
+                this.source = null;
+                this.canvas = document.getElementById('mini-viz-canvas');
+                this.cCtx = this.canvas.getContext('2d');
+                this.isPlaying = false;
+                this.currentTrack = 0;
+                this.isPanelOpen = false;
+                this.dataArray = null;
+                
+                this.audio.addEventListener('ended', () => this.next());
+            }
+
+            initContext() {
+                if(!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.analyser = this.ctx.createAnalyser();
+                    this.source = this.ctx.createMediaElementSource(this.audio);
+                    this.source.connect(this.analyser);
+                    this.analyser.connect(this.ctx.destination);
+                    this.analyser.fftSize = 64;
+                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                    this.draw();
+                }
+            }
+
+            togglePanel() {
+                this.isPanelOpen = !this.isPanelOpen;
+                const p = document.getElementById('music-panel');
+                if(this.isPanelOpen) {
+                    p.classList.add('active');
+                    this.initContext();
+                    if(!this.audio.src) this.loadTrack(0);
+                } else {
+                    p.classList.remove('active');
+                }
+            }
+
+            loadTrack(idx) {
+                this.currentTrack = idx;
+                this.audio.src = PLAYLIST[idx].src;
+                document.getElementById('m-track-title').innerText = PLAYLIST[idx].title;
+            }
+
+            togglePlay() {
+                this.initContext();
+                if(this.isPlaying) {
+                    this.audio.pause();
+                    document.getElementById('play-pause-btn').innerText = "PLAY";
+                } else {
+                    if (this.ctx.state === 'suspended') this.ctx.resume();
+                    this.audio.play();
+                    document.getElementById('play-pause-btn').innerText = "PAUSE";
+                }
+                this.isPlaying = !this.isPlaying;
+            }
+
+            next() {
+                this.currentTrack = (this.currentTrack + 1) % PLAYLIST.length;
+                this.loadTrack(this.currentTrack);
+                if(this.isPlaying) this.audio.play();
+            }
+
+            draw() {
+                requestAnimationFrame(() => this.draw());
+                if(!this.isPanelOpen && !this.isPlaying) return;
+                
+                if (this.dataArray) {
+                    this.analyser.getByteFrequencyData(this.dataArray);
+                }
+                
+                if (this.isPanelOpen) {
+                    this.cCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    const barWidth = (this.canvas.width / this.dataArray.length) * 2;
+                    let x = 0;
+                    
+                    for(let i=0; i < this.dataArray.length; i++) {
+                        const h = (this.dataArray[i] / 255) * this.canvas.height;
+                        this.cCtx.fillStyle = `rgb(255, 0, 21)`;
+                        this.cCtx.fillRect(x, this.canvas.height - h, barWidth-1, h);
+                        x += barWidth;
+                    }
+                }
+            }
+        }
 
         class Loader {
             constructor(cb) {
@@ -767,6 +926,7 @@
             });
         }
 
+        const globalAudio = new GlobalMusicPlayer();
         const app = new Core();
     </script>
 </body>
