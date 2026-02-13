@@ -211,7 +211,6 @@
             gap: 40px;
         }
 
-        /* ОБЫЧНЫЕ КАРТОЧКИ БЕЗ ЭФФЕКТОВ */
         .project-card {
             background: #151515;
             border: 1px solid #333;
@@ -245,7 +244,6 @@
         }
         .project-card:hover .btn-detail { background: #fff; color: #000; border-color: #fff; }
 
-        /* --- СТАТУС ONLINE --- */
         .online-status {
             display: inline-flex;
             align-items: center;
@@ -643,7 +641,7 @@
                 this.container.appendChild(this.renderer.domElement);
                 this.camera.position.z = 5;
                 
-                // УВЕЛИЧЕНО КОЛИЧЕСТВО ТОЧЕК
+                // 15,000 ТОЧЕК КАК ЗАПРАШИВАЛИ
                 const particleCount = 15000;
                 const geo = new THREE.BufferGeometry();
                 const pos = new Float32Array(particleCount * 3);
@@ -654,46 +652,61 @@
 
                 this.mouseX = 0;
                 this.mouseY = 0;
-                this.pulse = 0; // Для пульсации
+                this.pulse = 0;
+                
+                // Детектор кика
+                this.history = [];
+                this.energySum = 0;
                 
                 document.addEventListener('mousemove', (e) => {
                     this.mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
                     this.mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
                 });
             }
+            
             animate() {
                 requestAnimationFrame(this.animate.bind(this));
                 
-                // ЛОГИКА РЕАКЦИИ ТОЛЬКО НА КИК
+                let isKick = false;
+
                 if (window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
                     window.globalAudio.analyser.getByteFrequencyData(window.globalAudio.dataArray);
                     
-                    // Берем самую низкую частоту (кик)
-                    let kickValue = window.globalAudio.dataArray[0];
-                    
-                    // Порог: реагируем только на очень сильный удар (выше 210)
-                    // Это отсекает постоянную басовую линию и оставляет только импульс кика
-                    if (kickValue > 210) { 
-                        this.pulse = 1.0; 
-                    } else {
-                        // Плавное затухание пульсации
-                        this.pulse *= 0.92;
+                    // АНАЛИЗ ТОЛЬКО ПОД-БАСА (первые 3 бина при 2048 fftSize это ~20-60 Гц)
+                    let currentBass = 0;
+                    for(let i=0; i<3; i++) currentBass += window.globalAudio.dataArray[i];
+                    currentBass /= 3;
+
+                    // Вычисляем среднюю энергию баса за последние 30 кадров
+                    this.energySum += currentBass;
+                    this.history.push(currentBass);
+                    if(this.history.length > 30) {
+                        this.energySum -= this.history.shift();
                     }
-                } else {
-                    this.pulse *= 0.92;
+                    let avgEnergy = this.energySum / this.history.length;
+
+                    // ЕСЛИ ТЕКУЩИЙ УДАР В 1.4 РАЗА СИЛЬНЕЕ СРЕДНЕГО + ПОРОГ ГРОМКОСТИ
+                    // Это отсекает мелодию и ровный бас, реагируя на транзиент (удар)
+                    if (currentBass > avgEnergy * 1.4 && currentBass > 180) { 
+                        isKick = true;
+                    }
                 }
 
-                // Вращение: базовое + ускорение на кике
-                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (this.pulse * 0.1);
-                this.particles.rotation.x += (this.mouseY * 0.005);
-                
-                // ПУЛЬСАЦИЯ МАСШТАБА
-                const s = 1 + (this.pulse * 0.8);
+                if (isKick) {
+                    this.pulse = 1.0; // Вспышка пульсации
+                } else {
+                    this.pulse *= 0.9; // Плавное затухание
+                }
+
+                // Визуальный эффект пульсации
+                const s = 1 + (this.pulse * 0.7);
                 this.particles.scale.set(s, s, s);
-                
-                // ПУЛЬСАЦИЯ ЯРКОСТИ/РАЗМЕРА ТОЧЕК
-                this.particles.material.size = 0.02 + (this.pulse * 0.05);
+                this.particles.material.size = 0.02 + (this.pulse * 0.08);
                 this.particles.material.opacity = 0.3 + (this.pulse * 0.7);
+
+                // Вращение
+                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (this.pulse * 0.05);
+                this.particles.rotation.x += (this.mouseY * 0.005);
                 
                 this.renderer.render(this.scene, this.camera);
             }
@@ -761,7 +774,7 @@
                     this.source = this.ctx.createMediaElementSource(this.audio);
                     this.source.connect(this.analyser);
                     this.analyser.connect(this.ctx.destination);
-                    this.analyser.fftSize = 64;
+                    this.analyser.fftSize = 2048; // ПОВЫШЕННАЯ ТОЧНОСТЬ
                     const bufferLength = this.analyser.frequencyBinCount;
                     this.dataArray = new Uint8Array(bufferLength);
                 }
@@ -779,10 +792,10 @@
                 this.analyser.getByteFrequencyData(this.dataArray);
                 
                 this.canvasCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                const barWidth = (this.canvas.width / this.dataArray.length) * 2;
+                const barWidth = (this.canvas.width / 128) * 2;
                 let x = 0;
 
-                for(let i = 0; i < this.dataArray.length; i++) {
+                for(let i = 0; i < 128; i++) {
                     const barHeight = (this.dataArray[i] / 255) * this.canvas.height;
                     this.canvasCtx.fillStyle = `rgb(255, 0, 21)`;
                     this.canvasCtx.fillRect(x, this.canvas.height - barHeight, barWidth - 2, barHeight);
@@ -820,7 +833,7 @@
                     this.source = this.ctx.createMediaElementSource(this.audio);
                     this.source.connect(this.analyser);
                     this.analyser.connect(this.ctx.destination);
-                    this.analyser.fftSize = 64;
+                    this.analyser.fftSize = 2048; // ПОВЫШЕННАЯ ТОЧНОСТЬ
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
                     this.draw();
                 }
@@ -869,10 +882,10 @@
                 
                 this.analyser.getByteFrequencyData(this.dataArray);
                 this.cCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                const barWidth = (this.canvas.width / this.dataArray.length) * 2;
+                const barWidth = (this.canvas.width / 128) * 2;
                 let x = 0;
                 
-                for(let i=0; i < this.dataArray.length; i++) {
+                for(let i=0; i < 128; i++) {
                     const h = (this.dataArray[i] / 255) * this.canvas.height;
                     this.cCtx.fillStyle = `rgb(255, 0, 21)`;
                     this.cCtx.fillRect(x, this.canvas.height - h, barWidth-1, h);
