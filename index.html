@@ -603,7 +603,6 @@
 
     <script>
         const PROJECTS_DATA = [
-            // Lumière card removed as requested
             { title: 'Aurora', cat: 'Messenger', desc: 'Мессенджер Аврора с множеством функций, конфидицеальностью и криптовалютой.', img: 'img/project2.jpg', audio: 'audio/track2.mp3', link: '#', hasPlayer: false, showStatus: true },
             { title: 'Hono AI', cat: 'AI Bot', desc: 'ИИ Бот разработанный RAW.CORE по совместительству с (?), основана на множествах моделях с использованием системных промптов.', img: 'img/project3.jpg', audio: 'audio/track3.mp3', link: '#', hasPlayer: false, showStatus: true }
         ];
@@ -662,15 +661,20 @@
                 requestAnimationFrame(this.animate.bind(this));
                 
                 let bass = 0;
+                // Читаем данные из глобального аудио плеера
                 if(window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
-                    bass = window.globalAudio.dataArray[0] / 255; 
+                    // Берем среднее значение низких частот
+                    let sum = 0;
+                    for(let i = 0; i < 5; i++) sum += window.globalAudio.dataArray[i];
+                    bass = (sum / 5) / 255; 
                 }
 
-                // Движение фона за курсором + Визуализация
-                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (bass * 0.02);
+                // Вращение: база + влияние мыши + влияние бита
+                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (bass * 0.03);
                 this.particles.rotation.x += (this.mouseY * 0.005);
                 
-                const s = 1 + bass * 0.5;
+                // Пульсация размера в такт биту
+                const s = 1 + bass * 0.4;
                 this.particles.scale.set(s, s, s);
                 
                 this.renderer.render(this.scene, this.camera);
@@ -773,7 +777,6 @@
             }
         }
         
-        // --- NEW GLOBAL AUDIO PLAYER CLASS ---
         class GlobalMusicPlayer {
             constructor() {
                 this.audio = new Audio();
