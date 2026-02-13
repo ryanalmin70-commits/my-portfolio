@@ -660,21 +660,21 @@
             animate() {
                 requestAnimationFrame(this.animate.bind(this));
                 
-                let bass = 0;
-                // Читаем данные из глобального аудио плеера
-                if(window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
-                    // Берем среднее значение низких частот
+                // РЕАКЦИЯ НА МУЗЫКУ
+                let beatFactor = 0;
+                if (window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
+                    window.globalAudio.analyser.getByteFrequencyData(window.globalAudio.dataArray);
+                    // Анализируем низкие частоты (бит)
                     let sum = 0;
-                    for(let i = 0; i < 5; i++) sum += window.globalAudio.dataArray[i];
-                    bass = (sum / 5) / 255; 
+                    const amount = 5;
+                    for(let i = 0; i < amount; i++) sum += window.globalAudio.dataArray[i];
+                    beatFactor = (sum / amount) / 255;
                 }
 
-                // Вращение: база + влияние мыши + влияние бита
-                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (bass * 0.03);
+                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (beatFactor * 0.05);
                 this.particles.rotation.x += (this.mouseY * 0.005);
                 
-                // Пульсация размера в такт биту
-                const s = 1 + bass * 0.4;
+                const s = 1 + (beatFactor * 0.5);
                 this.particles.scale.set(s, s, s);
                 
                 this.renderer.render(this.scene, this.camera);
@@ -846,23 +846,18 @@
 
             draw() {
                 requestAnimationFrame(() => this.draw());
-                if(!this.isPanelOpen && !this.isPlaying) return;
+                if(!this.isPanelOpen || !this.dataArray) return;
                 
-                if (this.dataArray) {
-                    this.analyser.getByteFrequencyData(this.dataArray);
-                }
+                this.analyser.getByteFrequencyData(this.dataArray);
+                this.cCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                const barWidth = (this.canvas.width / this.dataArray.length) * 2;
+                let x = 0;
                 
-                if (this.isPanelOpen) {
-                    this.cCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                    const barWidth = (this.canvas.width / this.dataArray.length) * 2;
-                    let x = 0;
-                    
-                    for(let i=0; i < this.dataArray.length; i++) {
-                        const h = (this.dataArray[i] / 255) * this.canvas.height;
-                        this.cCtx.fillStyle = `rgb(255, 0, 21)`;
-                        this.cCtx.fillRect(x, this.canvas.height - h, barWidth-1, h);
-                        x += barWidth;
-                    }
+                for(let i=0; i < this.dataArray.length; i++) {
+                    const h = (this.dataArray[i] / 255) * this.canvas.height;
+                    this.cCtx.fillStyle = `rgb(255, 0, 21)`;
+                    this.cCtx.fillRect(x, this.canvas.height - h, barWidth-1, h);
+                    x += barWidth;
                 }
             }
         }
