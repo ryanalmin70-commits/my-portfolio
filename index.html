@@ -642,11 +642,10 @@
                 this.mouseY = 0;
                 this.pulse = 0;
                 
-                // --- СИСТЕМА ДЕТЕКЦИИ KICK (ПИКСЕЛЬНАЯ ТОЧНОСТЬ) ---
+                // --- ЭНЕРГЕТИЧЕСКИЙ ДЕТЕКТОР КИКА ---
                 this.lastKickTime = 0;
-                this.bassHistory = new Float32Array(30).fill(0); // История громкости
-                this.historyIndex = 0;
-                this.adaptiveThreshold = 1.5; // Коэффициент превышения над средним
+                this.energyHistory = new Float32Array(40).fill(0); 
+                this.historyIdx = 0;
                 
                 document.addEventListener('mousemove', (e) => {
                     this.mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -662,49 +661,50 @@
                 if (window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
                     window.globalAudio.analyser.getByteFrequencyData(window.globalAudio.dataArray);
                     
-                    // 1. Берем сумму самых низких частот (суб-бас)
-                    // Мы не берем только один бин, а суммируем 1 и 2, чтобы не пропустить частоту кика
-                    let currentBass = (window.globalAudio.dataArray[1] + window.globalAudio.dataArray[2]) / 2;
-                    
-                    // 2. Считаем среднюю громкость за последние 30 кадров
-                    let avgBass = 0;
-                    for(let i=0; i<this.bassHistory.length; i++) avgBass += this.bassHistory[i];
-                    avgBass /= this.bassHistory.length;
+                    // 1. Считаем энергию низких частот (диапазон баса 0-15 бинов)
+                    let currentEnergy = 0;
+                    for(let i=0; i<15; i++) {
+                        currentEnergy += window.globalAudio.dataArray[i];
+                    }
+                    currentEnergy /= 15;
+
+                    // 2. Считаем среднюю энергию фона
+                    let avgEnergy = 0;
+                    for(let i=0; i<this.energyHistory.length; i++) avgEnergy += this.energyHistory[i];
+                    avgEnergy /= this.energyHistory.length;
 
                     let now = performance.now();
                     
-                    // 3. УСЛОВИЕ УДАРА: 
-                    // - Текущий бас должен быть выше минимального порога (100)
-                    // - Текущий бас должен быть в 1.5 раза выше среднего фона
-                    // - Прошло минимум 130мс с прошлого удара
-                    if (currentBass > 100 && currentBass > avgBass * this.adaptiveThreshold && (now - this.lastKickTime > 130)) { 
+                    // 3. ПРОВЕРКА НА ВСПЛЕСК ЭНЕРГИИ (КИК)
+                    // Если энергия в 1.3 раза выше средней и прошло 150мс
+                    if (currentEnergy > 70 && currentEnergy > avgEnergy * 1.35 && (now - this.lastKickTime > 150)) { 
                         isKick = true;
                         this.lastKickTime = now;
-                        // После удара временно повышаем порог, чтобы не ловить "эхо"
-                        this.adaptiveThreshold = 1.8;
-                    } else {
-                        // Плавно возвращаем чувствительность
-                        this.adaptiveThreshold = Math.max(1.4, this.adaptiveThreshold * 0.995);
                     }
 
                     // Обновляем историю
-                    this.bassHistory[this.historyIndex] = currentBass;
-                    this.historyIndex = (this.historyIndex + 1) % this.bassHistory.length;
+                    this.energyHistory[this.historyIdx] = currentEnergy;
+                    this.historyIdx = (this.historyIdx + 1) % this.energyHistory.length;
+                    
+                    // Отладочный визуализатор (в мини-плеере появится белая полоска пульса)
+                    if(window.globalAudio.cCtx && isKick) {
+                         window.globalAudio.cCtx.fillStyle = '#fff';
+                         window.globalAudio.cCtx.fillRect(0, 0, 5, 50);
+                    }
                 }
 
                 if (isKick) {
                     this.pulse = 1.0; 
                 } else {
-                    this.pulse *= 0.85; // Быстрое затухание для четких вспышек
+                    this.pulse *= 0.82; // Резкое затухание для динамики
                 }
 
-                // Анимация частиц
-                const s = 1 + (this.pulse * 1.5);
+                const s = 1 + (this.pulse * 1.8);
                 this.particles.scale.set(s, s, s);
-                this.particles.material.size = 0.02 + (this.pulse * 0.15);
-                this.particles.material.opacity = 0.3 + (this.pulse * 0.7);
+                this.particles.material.size = 0.02 + (this.pulse * 0.18);
+                this.particles.material.opacity = 0.2 + (this.pulse * 0.8);
 
-                this.particles.rotation.y += 0.001 + (this.mouseX * 0.002) + (this.pulse * 0.08);
+                this.particles.rotation.y += 0.001 + (this.mouseX * 0.002) + (this.pulse * 0.1);
                 this.particles.rotation.x += (this.mouseY * 0.002);
                 
                 this.renderer.render(this.scene, this.camera);
@@ -832,7 +832,7 @@
                     this.source = this.ctx.createMediaElementSource(this.audio);
                     this.source.connect(this.analyser);
                     this.analyser.connect(this.ctx.destination);
-                    this.analyser.fftSize = 512; 
+                    this.analyser.fftSize = 256; 
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
                     this.draw();
                 }
