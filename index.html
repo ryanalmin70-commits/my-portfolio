@@ -654,9 +654,10 @@
                 this.mouseY = 0;
                 this.pulse = 0;
                 
-                // ПАРАМЕТРЫ ДЛЯ ДЕТЕКЦИИ ИМЕННО КИКА
+                // АДАПТИВНЫЕ ПАРАМЕТРЫ ДЛЯ КИКА
                 this.prevBass = 0;
                 this.lastKickTime = 0;
+                this.bassHistory = [];
                 
                 document.addEventListener('mousemove', (e) => {
                     this.mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -672,20 +673,23 @@
                 if (window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
                     window.globalAudio.analyser.getByteFrequencyData(window.globalAudio.dataArray);
                     
-                    // БИН 1 — Это область ~40-60Гц (самый центр кика)
+                    // БИН 1 (самые низы)
                     let currentBass = window.globalAudio.dataArray[1];
                     
-                    // ДЕЛЬТА: насколько резко вырос звук по сравнению с прошлым кадром
+                    // Собираем историю громкости для адаптивного порога
+                    this.bassHistory.push(currentBass);
+                    if(this.bassHistory.length > 50) this.bassHistory.shift();
+                    let avgBass = this.bassHistory.reduce((a,b)=>a+b, 0) / this.bassHistory.length;
+
                     let delta = currentBass - this.prevBass;
                     this.prevBass = currentBass;
-
                     let now = performance.now();
                     
-                    // ЛОГИКА ТРАНЗИЕНТА:
-                    // 1. Дельта должна быть большой (резкий удар)
-                    // 2. Громкость должна быть выше порога
-                    // 3. Должно пройти минимум 150мс с прошлого удара (чтобы не путать с мелодией)
-                    if (delta > 35 && currentBass > 185 && (now - this.lastKickTime > 160)) { 
+                    // УСЛОВИЯ ДЛЯ БОЛЕЕ ЧУТКОЙ РЕАКЦИИ:
+                    // 1. Дельта > 25 (было 35) — удар ловится легче.
+                    // 2. Cooldown 100мс (было 160) — видит быстрые кики.
+                    // 3. Уровень баса должен быть заметно выше среднего по истории.
+                    if (delta > 25 && currentBass > avgBass * 1.2 && (now - this.lastKickTime > 100)) { 
                         isKick = true;
                         this.lastKickTime = now;
                     }
@@ -694,20 +698,15 @@
                 if (isKick) {
                     this.pulse = 1.0; 
                 } else {
-                    // Медленное затухание для плавности пульсации
-                    this.pulse *= 0.91;
+                    this.pulse *= 0.92; // Затухание чуть быстрее
                 }
 
-                // ЭФФЕКТ ПУЛЬСАЦИИ (Scale + Opacity)
-                const s = 1 + (this.pulse * 0.9);
+                const s = 1 + (this.pulse * 0.8);
                 this.particles.scale.set(s, s, s);
-                
-                // Точки не "летят", а пульсируют яркостью и размером
-                this.particles.material.size = 0.02 + (this.pulse * 0.1);
-                this.particles.material.opacity = 0.2 + (this.pulse * 0.8);
+                this.particles.material.size = 0.02 + (this.pulse * 0.09);
+                this.particles.material.opacity = 0.25 + (this.pulse * 0.75);
 
-                // Вращение (зависит от мышки + легкое ускорение на кике)
-                this.particles.rotation.y += 0.001 + (this.mouseX * 0.002) + (this.pulse * 0.02);
+                this.particles.rotation.y += 0.001 + (this.mouseX * 0.002) + (this.pulse * 0.03);
                 this.particles.rotation.x += (this.mouseY * 0.002);
                 
                 this.renderer.render(this.scene, this.camera);
