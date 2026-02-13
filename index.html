@@ -75,7 +75,7 @@
         .loader-bar-bg { width: 100%; height: 2px; background: #111; position: relative; overflow: hidden; }
         .loader-bar-fill { width: 0%; height: 100%; background: var(--c-accent); box-shadow: 0 0 20px var(--c-accent); }
 
-        /* --- HARDCORE LAUNCH SEQUENCE --- */
+        /* --- EXTREME LAUNCH SEQUENCE --- */
         #launch-sequence {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 15000; display: none;
@@ -85,38 +85,47 @@
         
         #launch-canvas {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: -1; opacity: 0.3;
+            z-index: -1; opacity: 0.5;
         }
 
         .launch-log {
-            font-size: 10px; color: var(--c-accent); width: 100%; max-width: 800px;
-            height: 350px; overflow: hidden; position: relative;
-            background: rgba(10,0,0,0.5); border: 1px solid var(--c-accent-dim);
-            padding: 20px; box-shadow: inset 0 0 30px rgba(255,0,0,0.1);
+            font-size: 11px; color: var(--c-accent); width: 100%; max-width: 900px;
+            height: 400px; overflow: hidden; position: relative;
+            background: rgba(15,0,0,0.7); border: 2px solid var(--c-accent);
+            padding: 25px; box-shadow: 0 0 50px rgba(255,0,0,0.2), inset 0 0 40px rgba(0,0,0,1);
+            backdrop-filter: blur(10px);
         }
 
         .launch-scanner {
-            position: absolute; top: 0; left: 0; width: 100%; height: 4px;
-            background: var(--c-accent); box-shadow: 0 0 30px var(--c-accent);
-            animation: scan 1.5s linear infinite; z-index: 2;
+            position: absolute; top: 0; left: 0; width: 100%; height: 10px;
+            background: linear-gradient(to bottom, transparent, var(--c-accent), transparent);
+            box-shadow: 0 0 40px var(--c-accent);
+            animation: scan 0.8s linear infinite; z-index: 2;
         }
         
         .glitch-flash {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--c-accent); opacity: 0; pointer-events: none; z-index: 5;
+            background: #fff; opacity: 0; pointer-events: none; z-index: 16000;
         }
 
-        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+        @keyframes scan { 0% { top: -10%; } 100% { top: 110%; } }
 
-        @keyframes glitch-anim {
-            0% { transform: translate(0); }
-            20% { transform: translate(-5px, 5px); }
-            40% { transform: translate(-5px, -5px); }
-            60% { transform: translate(5px, 5px); }
-            80% { transform: translate(5px, -5px); }
-            100% { transform: translate(0); }
+        .glitch-heavy {
+            animation: shake 0.1s infinite;
+            filter: contrast(2) brightness(1.5) saturate(2);
         }
-        .glitch-active { animation: glitch-anim 0.1s infinite; filter: hue-rotate(90deg); }
+        
+        @keyframes shake {
+            0% { transform: translate(0,0) skew(0); }
+            25% { transform: translate(-10px, 5px) skew(5deg); filter: hue-rotate(90deg); }
+            50% { transform: translate(10px, -5px) skew(-5deg); filter: hue-rotate(180deg); }
+            75% { transform: translate(-5px, -10px) skew(2deg); }
+            100% { transform: translate(5px, 10px) skew(-2deg); }
+        }
+
+        .rgb-split {
+            text-shadow: 3px 0 0 #ff0000, -3px 0 0 #00ffff;
+        }
 
         /* --- КУРСОР --- */
         .cursor-dot, .cursor-circle {
@@ -500,11 +509,11 @@
     <div id="launch-sequence">
         <div class="glitch-flash" id="flash"></div>
         <canvas id="launch-canvas"></canvas>
-        <div class="loader-text" style="font-size: 24px; margin-bottom: 30px; letter-spacing: 10px; text-shadow: 0 0 15px var(--c-accent);">OVERRIDING...</div>
+        <div class="loader-text rgb-split" style="font-size: 32px; margin-bottom: 30px; letter-spacing: 15px; font-weight: 800;">CRITICAL BREACH</div>
         <div class="launch-log" id="launch-log-container">
             <div class="launch-scanner"></div>
         </div>
-        <div class="loader-text" id="launch-percent" style="margin-top: 20px; font-size: 18px;">0%</div>
+        <div class="loader-text" id="launch-percent" style="margin-top: 20px; font-size: 24px; color: #fff;">00%</div>
     </div>
 
     <div id="access-overlay">
@@ -826,6 +835,7 @@
                 window.globalAudio = this; 
                 this.audio = new Audio(); this.audio.crossOrigin = "anonymous";
                 this.ctx = null; this.analyser = null; this.source = null;
+                this.distortion = null; // Для эффекта искажения
                 this.canvas = document.getElementById('mini-viz-canvas');
                 this.cCtx = this.canvas.getContext('2d');
                 this.isPlaying = false; this.currentTrack = 0; this.isPanelOpen = false; this.dataArray = null;
@@ -835,13 +845,29 @@
                 if(!this.ctx) {
                     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
                     this.analyser = this.ctx.createAnalyser();
+                    this.distortion = this.ctx.createWaveShaper();
                     this.source = this.ctx.createMediaElementSource(this.audio);
-                    this.source.connect(this.analyser);
+                    
+                    // Цепочка: Source -> Distortion -> Analyser -> Dest
+                    this.source.connect(this.distortion);
+                    this.distortion.connect(this.analyser);
                     this.analyser.connect(this.ctx.destination);
+                    
                     this.analyser.fftSize = 256; 
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                    this.setDistortion(0); // По умолчанию выключен
                     this.draw();
                 }
+            }
+            setDistortion(amount) {
+                if(!this.distortion) return;
+                if(amount <= 0) { this.distortion.curve = null; return; }
+                let k = amount, n_samples = 44100, curve = new Float32Array(n_samples), deg = Math.PI / 180, i = 0, x;
+                for ( ; i < n_samples; ++i ) {
+                  x = i * 2 / n_samples - 1;
+                  curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) );
+                }
+                this.distortion.curve = curve;
             }
             togglePanel() {
                 this.isPanelOpen = !this.isPanelOpen;
@@ -889,7 +915,7 @@
             }
         }
 
-        /* --- ЛОГИКА АНИМАЦИИ ЗАПУСКА --- */
+        /* --- EXTREME LAUNCH LOGIC (3 SECONDS) --- */
         function startProjectSequence() {
             const sequence = document.getElementById('launch-sequence');
             const logContainer = document.getElementById('launch-log-container');
@@ -902,67 +928,77 @@
             canvas.height = window.innerHeight;
             
             sequence.style.display = 'flex';
-            gsap.fromTo(sequence, { opacity: 0 }, { opacity: 1, duration: 0.5 });
+            gsap.fromTo(sequence, { opacity: 0 }, { opacity: 1, duration: 0.3 });
 
-            // Матричный дождь
-            const chars = "RAWCORE01X_#!?";
-            const fontSize = 14;
+            // Искажение звука, если музыка играет
+            if(window.globalAudio && window.globalAudio.isPlaying) {
+                window.globalAudio.setDistortion(400); // Дикое искажение
+            }
+
+            // Матричный бинарный дождь
+            const fontSize = 16;
             const columns = canvas.width / fontSize;
             const drops = Array(Math.floor(columns)).fill(1);
 
             function drawMatrix() {
-                ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+                ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = "#ff0015";
-                ctx.font = fontSize + "px monospace";
+                ctx.font = "900 " + fontSize + "px monospace";
                 for (let i = 0; i < drops.length; i++) {
-                    const text = chars[Math.floor(Math.random() * chars.length)];
+                    const text = Math.random() > 0.5 ? "1" : "0";
                     ctx.fillText(text, i * fontSize, drops[i] * fontSize);
-                    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
-                    drops[i]++;
+                    if (drops[i] * fontSize > canvas.height && Math.random() > 0.9) drops[i] = 0;
+                    drops[i] += 2.5; // Ускоренный поток
                 }
             }
-            const matrixInt = setInterval(drawMatrix, 33);
+            const matrixInt = setInterval(drawMatrix, 20);
 
             const logs = [
-                "CRACKING DATABASE...", "INJECTING CORE...", "BYPASSING FIREWALL...",
-                "REROUTING SIGNAL...", "EXTRACTING RAW_DATA...", "UPLOADING ASSETS...",
-                "NODE_ACCESS: GRANTED", "ENCRYPTION: REMOVED", "EXECUTING_INIT_SEQUENCE",
-                "SYNCING NEURAL NET...", "GATHERING PACKETS...", "PORT_8080: OPEN"
+                "OVERRIDING KERNEL...", "FORCE_LOGIN: ADMIN", "WIPING LOGS...",
+                "OPENING BACKDOOR...", "HIJACKING PORT_443...", "UPLOADING CORE_V3",
+                "SECURITY_LEVEL: NULL", "BYPASS_SUCCESS", "ROOT_ACCESS: GRANTED",
+                "REDIRECTING TRAFFIC...", "DOWNLOADING_DB...", "RAW.CORE_ACTIVE"
             ];
 
             let p = 0;
             const logInterval = setInterval(() => {
                 const line = document.createElement('div');
-                line.style.cssText = "margin-bottom: 5px; text-shadow: 0 0 5px red;";
-                line.innerText = `[LOG]: ${logs[Math.floor(Math.random() * logs.length)]} -> SUCCESS`;
+                line.className = "rgb-split";
+                line.style.cssText = "margin-bottom: 8px; font-weight: 800; border-left: 4px solid red; padding-left: 10px;";
+                line.innerText = `>> ${logs[Math.floor(Math.random() * logs.length)]} [${(Math.random()*1000).toFixed(0)}ms]`;
                 logContainer.appendChild(line);
                 logContainer.scrollTop = logContainer.scrollHeight;
                 
-                // Глитч и вспышки
-                if(Math.random() > 0.8) {
-                    sequence.classList.add('glitch-active');
-                    gsap.to(flash, { opacity: 0.2, duration: 0.05, onComplete: () => {
-                        gsap.to(flash, { opacity: 0, duration: 0.05 });
-                        sequence.classList.remove('glitch-active');
+                // Рандомный сильный глитч экрана
+                if(Math.random() > 0.6) {
+                    sequence.classList.add('glitch-heavy');
+                    gsap.to(flash, { opacity: 0.3, duration: 0.03, onComplete: () => {
+                        gsap.to(flash, { opacity: 0, duration: 0.03 });
+                        sequence.classList.remove('glitch-heavy');
                     }});
                 }
 
-                p += Math.random() * 4;
+                p += 4 + Math.random() * 8;
                 if(p > 100) p = 100;
-                percent.innerText = Math.floor(p) + "%";
-            }, 100);
+                percent.innerText = Math.floor(p).toString().padStart(2, '0') + "%";
+            }, 60);
 
+            // Завершение через 3 секунды
             setTimeout(() => {
                 clearInterval(logInterval);
                 clearInterval(matrixInt);
-                // Финальный взрыв
-                gsap.to(flash, { opacity: 1, duration: 0.2, onComplete: () => {
+                
+                // Возвращаем чистый звук
+                if(window.globalAudio) window.globalAudio.setDistortion(0);
+
+                // Финальная яркая вспышка и переход
+                gsap.to(flash, { opacity: 1, duration: 0.1, onComplete: () => {
                     sequence.style.display = 'none';
                     flash.style.opacity = 0;
                     openArchive();
                 }});
-            }, 5500); 
+            }, 3000); 
         }
 
         function openArchive() { document.getElementById('archive-modal').style.display = 'block'; gsap.to('#archive-modal', { opacity: 1 }); }
