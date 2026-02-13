@@ -689,7 +689,7 @@
                     // 1. Дельта > 25 (было 35) — удар ловится легче.
                     // 2. Cooldown 100мс (было 160) — видит быстрые кики.
                     // 3. Уровень баса должен быть заметно выше среднего по истории.
-                    if (delta > 25 && currentBass > avgBass * 1.2 && (now - this.lastKickTime > 100)) { 
+                    if (delta > 25 && currentBass > avgBass * 1.2 && (now - this.lastKickTime > 1)) { 
                         isKick = true;
                         this.lastKickTime = now;
                     }
