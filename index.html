@@ -835,9 +835,9 @@
                 this.audio = new Audio(); this.audio.crossOrigin = "anonymous";
                 this.ctx = null; this.analyser = null; this.source = null;
                 
-                // Цепочка реалистичного вирусного искажения
-                this.modulator = null; // Кольцевая модуляция (роботизация)
-                this.masterGain = null; // Мастер-громкость для затухания
+                this.modulator = null; 
+                this.modGain = null;
+                this.masterGain = null; 
                 this.glitchInterval = null;
                 
                 this.canvas = document.getElementById('mini-viz-canvas');
@@ -851,21 +851,19 @@
                     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
                     this.analyser = this.ctx.createAnalyser();
                     
-                    // Узлы глитча
                     this.masterGain = this.ctx.createGain();
                     this.modulator = this.ctx.createOscillator();
                     this.modGain = this.ctx.createGain();
                     this.source = this.ctx.createMediaElementSource(this.audio);
                     
                     this.modulator.type = 'sawtooth';
-                    this.modulator.frequency.value = 50;
-                    this.modGain.gain.value = 0; // Изначально выключено
+                    this.modulator.frequency.value = 80;
+                    this.modGain.gain.value = 0; 
                     
-                    // Кольцевая модуляция: Source * Modulator
+                    // Кольцевая модуляция
                     this.source.connect(this.modGain);
                     this.modulator.connect(this.modGain.gain);
                     
-                    // Цепочка к выходу
                     this.source.connect(this.masterGain);
                     this.modGain.connect(this.masterGain);
                     
@@ -879,41 +877,34 @@
                 }
             }
             
-            // Реалистичный вирусный глитч: кольцевая модуляция + прерывания
-            setVirusGlitch(active) {
+            // Включаем эффект глитча только на время анимации
+            setGlitchEffect(active) {
                 if(!this.ctx) return;
                 const now = this.ctx.currentTime;
                 
                 if(active) {
-                    // Включаем "роботизированный" скрежет
                     this.modGain.gain.setTargetAtTime(1, now, 0.05);
-                    this.modulator.frequency.setTargetAtTime(150, now, 0.1);
+                    this.modulator.frequency.setTargetAtTime(180, now, 0.1);
                     
-                    // Запускаем хаотичные прерывания (Audio Glitch)
                     this.glitchInterval = setInterval(() => {
                         const gTime = this.ctx.currentTime;
-                        if(Math.random() > 0.5) {
+                        if(Math.random() > 0.4) {
                             this.masterGain.gain.setValueAtTime(0, gTime);
-                            this.masterGain.gain.setTargetAtTime(1, gTime + 0.02, 0.01);
-                            this.modulator.frequency.setValueAtTime(Math.random() * 500, gTime);
+                            this.masterGain.gain.setTargetAtTime(1, gTime + 0.03, 0.01);
                         }
-                    }, 100);
+                    }, 80);
                 } else {
-                    // Выключаем глитчи
                     if(this.glitchInterval) clearInterval(this.glitchInterval);
-                    this.modGain.gain.setTargetAtTime(0, now, 0.1);
-                    this.masterGain.gain.setTargetAtTime(1, now, 0.1);
+                    this.modGain.gain.setTargetAtTime(0, now, 0.05);
                 }
             }
 
-            // Плавное восстановление громкости (3 секунды)
-            recoverVolume() {
+            // Плавный возврат громкости (0 -> 100% за 3 секунды)
+            fadeFromZero() {
                 if(!this.ctx) return;
                 const now = this.ctx.currentTime;
-                // Резкое затухание в 0
                 this.masterGain.gain.cancelScheduledValues(now);
                 this.masterGain.gain.setValueAtTime(0, now);
-                // Плавный возврат за 3 секунды
                 this.masterGain.gain.linearRampToValueAtTime(1.0, now + 3.0);
             }
 
@@ -978,12 +969,11 @@
             sequence.style.display = 'flex';
             gsap.fromTo(sequence, { opacity: 0 }, { opacity: 1, duration: 0.3 });
 
-            // ВКЛЮЧАЕМ ГЛИТЧИ
+            // ВКЛЮЧАЕМ ГЛИТЧИ НА ВРЕМЯ АНИМАЦИИ
             if(window.globalAudio && window.globalAudio.isPlaying) {
-                window.globalAudio.setVirusGlitch(true);
+                window.globalAudio.setGlitchEffect(true);
             }
 
-            // Матричный бинарный дождь
             const fontSize = 16;
             const columns = canvas.width / fontSize;
             const drops = Array(Math.floor(columns)).fill(1);
@@ -1018,7 +1008,6 @@
                 logContainer.appendChild(line);
                 logContainer.scrollTop = logContainer.scrollHeight;
                 
-                // Рандомный сильный глитч экрана
                 if(Math.random() > 0.6) {
                     sequence.classList.add('glitch-heavy');
                     gsap.to(flash, { opacity: 0.3, duration: 0.03, onComplete: () => {
@@ -1036,11 +1025,11 @@
                 clearInterval(logInterval);
                 clearInterval(matrixInt);
                 
-                // ЗАВЕРШЕНИЕ: УБИРАЕМ ГЛИТЧИ И ВОССТАНАВЛИВАЕМ ГРОМКОСТЬ
+                // ЗАВЕРШЕНИЕ: ВЫКЛЮЧАЕМ ЭФФЕКТЫ И ПЛАВНО ВОЗВРАЩАЕМ ГРОМКОСТЬ ИЗ НУЛЯ
                 if(window.globalAudio) {
-                    window.globalAudio.setVirusGlitch(false);
+                    window.globalAudio.setGlitchEffect(false);
                     if(window.globalAudio.isPlaying) {
-                        window.globalAudio.recoverVolume();
+                        window.globalAudio.fadeFromZero();
                     }
                 }
 
