@@ -641,7 +641,6 @@
                 this.container.appendChild(this.renderer.domElement);
                 this.camera.position.z = 5;
                 
-                // 15,000 ТОЧЕК
                 const particleCount = 15000;
                 const geo = new THREE.BufferGeometry();
                 const pos = new Float32Array(particleCount * 3);
@@ -654,10 +653,9 @@
                 this.mouseY = 0;
                 this.pulse = 0;
                 
-                // АДАПТИВНЫЕ ПАРАМЕТРЫ ДЛЯ КИКА
-                this.prevBass = 0;
+                // --- НОВАЯ СИСТЕМА ДЕТЕКЦИИ ---
                 this.lastKickTime = 0;
-                this.bassHistory = [];
+                this.maxBassObserved = 0; // Пиковый уровень баса
                 
                 document.addEventListener('mousemove', (e) => {
                     this.mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -673,23 +671,23 @@
                 if (window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
                     window.globalAudio.analyser.getByteFrequencyData(window.globalAudio.dataArray);
                     
-                    // БИН 1 (самые низы)
-                    let currentBass = window.globalAudio.dataArray[1];
+                    // Берем суб-бас (самый низ, где живет кик)
+                    let currentBass = window.globalAudio.dataArray[1]; 
                     
-                    // Собираем историю громкости для адаптивного порога
-                    this.bassHistory.push(currentBass);
-                    if(this.bassHistory.length > 50) this.bassHistory.shift();
-                    let avgBass = this.bassHistory.reduce((a,b)=>a+b, 0) / this.bassHistory.length;
+                    // Динамическое обновление пика
+                    if (currentBass > this.maxBassObserved) {
+                        this.maxBassObserved = currentBass;
+                    } else {
+                        // Постепенно снижаем "память" о пике, чтобы адаптироваться к тихим частям трека
+                        this.maxBassObserved *= 0.998;
+                    }
 
-                    let delta = currentBass - this.prevBass;
-                    this.prevBass = currentBass;
                     let now = performance.now();
                     
-                    // УСЛОВИЯ ДЛЯ БОЛЕЕ ЧУТКОЙ РЕАКЦИИ:
-                    // 1. Дельта > 25 (было 35) — удар ловится легче.
-                    // 2. Cooldown 100мс (было 160) — видит быстрые кики.
-                    // 3. Уровень баса должен быть заметно выше среднего по истории.
-                    if (delta > 25 && currentBass > avgBass * 1.2 && (now - this.lastKickTime > 1)) { 
+                    // ПИКОВЫЙ ДЕТЕКТОР:
+                    // Если звук выше 85% от максимального зафиксированного баса
+                    // И прошло хотя бы 120мс (чтобы не дребезжало)
+                    if (currentBass > 140 && currentBass > this.maxBassObserved * 0.85 && (now - this.lastKickTime > 120)) { 
                         isKick = true;
                         this.lastKickTime = now;
                     }
@@ -698,15 +696,16 @@
                 if (isKick) {
                     this.pulse = 1.0; 
                 } else {
-                    this.pulse *= 0.92; // Затухание чуть быстрее
+                    this.pulse *= 0.88; // Еще более резкое затухание для четкости
                 }
 
-                const s = 1 + (this.pulse * 0.8);
+                // Влияние на частицы
+                const s = 1 + (this.pulse * 1.2); // Увеличил размах пульсации
                 this.particles.scale.set(s, s, s);
-                this.particles.material.size = 0.02 + (this.pulse * 0.09);
-                this.particles.material.opacity = 0.25 + (this.pulse * 0.75);
+                this.particles.material.size = 0.02 + (this.pulse * 0.12);
+                this.particles.material.opacity = 0.2 + (this.pulse * 0.8);
 
-                this.particles.rotation.y += 0.001 + (this.mouseX * 0.002) + (this.pulse * 0.03);
+                this.particles.rotation.y += 0.001 + (this.mouseX * 0.002) + (this.pulse * 0.05);
                 this.particles.rotation.x += (this.mouseY * 0.002);
                 
                 this.renderer.render(this.scene, this.camera);
@@ -834,7 +833,7 @@
                     this.source = this.ctx.createMediaElementSource(this.audio);
                     this.source.connect(this.analyser);
                     this.analyser.connect(this.ctx.destination);
-                    this.analyser.fftSize = 2048; 
+                    this.analyser.fftSize = 256; // Меньше FFT — быстрее реакция
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
                     this.draw();
                 }
@@ -883,10 +882,10 @@
                 
                 this.analyser.getByteFrequencyData(this.dataArray);
                 this.cCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                const barWidth = (this.canvas.width / 128) * 2;
+                const barWidth = (this.canvas.width / 64) * 2;
                 let x = 0;
                 
-                for(let i=0; i < 128; i++) {
+                for(let i=0; i < 64; i++) {
                     const h = (this.dataArray[i] / 255) * this.canvas.height;
                     this.cCtx.fillStyle = `rgb(255, 0, 21)`;
                     this.cCtx.fillRect(x, this.canvas.height - h, barWidth-1, h);
