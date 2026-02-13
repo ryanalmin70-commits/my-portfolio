@@ -619,8 +619,8 @@
         };
 
         const PLAYLIST = [
-            { title: "Lumière", src: "audio/track1.mp3" },
-            { title: "CSI RES", src: "audio/track2.mp3" }
+            { title: "Lumière", src: "audio/lumière.mp3" },
+            { title: "Aurora Theme", src: "audio/track2.mp3" }
         ];
 
         class Core {
@@ -660,25 +660,28 @@
             animate() {
                 requestAnimationFrame(this.animate.bind(this));
                 
-                // РЕАКЦИЯ НА МУЗЫКУ
+                // РЕАКЦИЯ НА БИТЫ (НИЗКИЕ ЧАСТОТЫ)
                 let beatFactor = 0;
                 if (window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
                     window.globalAudio.analyser.getByteFrequencyData(window.globalAudio.dataArray);
-                    // Анализируем низкие частоты (бит) более интенсивно
-                    let sum = 0;
-                    const amount = 10;
-                    for(let i = 0; i < amount; i++) sum += window.globalAudio.dataArray[i];
-                    beatFactor = (sum / amount) / 255;
+                    
+                    // Биты обычно находятся в первых корзинах частот (0-2) при fftSize 64
+                    let bassAvg = (window.globalAudio.dataArray[0] + window.globalAudio.dataArray[1] + window.globalAudio.dataArray[2]) / 3;
+                    
+                    // Порог срабатывания: реагируем только на сильные удары баса
+                    if (bassAvg > 185) { 
+                        beatFactor = (bassAvg / 255) * 1.5; 
+                    } else {
+                        beatFactor = (bassAvg / 255) * 0.15; // Легкий фоновый эффект
+                    }
                 }
 
-                // Вращение зависит от бита
+                // Увеличенное вращение и пульсация на битах
                 this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (beatFactor * 0.08);
                 this.particles.rotation.x += (this.mouseY * 0.005);
                 
-                // Пульсация размера и масштаба
-                const s = 1 + (beatFactor * 0.8);
+                const s = 1 + (beatFactor * 0.6);
                 this.particles.scale.set(s, s, s);
-                this.particles.material.size = 0.02 + (beatFactor * 0.05);
                 
                 this.renderer.render(this.scene, this.camera);
             }
@@ -782,7 +785,7 @@
         
         class GlobalMusicPlayer {
             constructor() {
-                window.globalAudio = this;
+                window.globalAudio = this; // Экспортируем в глобальную область для World.animate
                 this.audio = new Audio();
                 this.audio.crossOrigin = "anonymous";
                 this.ctx = null;
