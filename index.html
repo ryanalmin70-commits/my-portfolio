@@ -643,15 +643,19 @@
                 this.container.appendChild(this.renderer.domElement);
                 this.camera.position.z = 5;
                 
+                // УВЕЛИЧЕНО КОЛИЧЕСТВО ТОЧЕК
+                const particleCount = 15000;
                 const geo = new THREE.BufferGeometry();
-                const pos = new Float32Array(4000 * 3);
-                for(let i=0; i<12000; i++) pos[i] = (Math.random()-0.5)*15;
+                const pos = new Float32Array(particleCount * 3);
+                for(let i=0; i<particleCount * 3; i++) pos[i] = (Math.random()-0.5)*15;
                 geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
                 this.particles = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.02, color: 0xff0015, transparent: true, opacity: 0.5 }));
                 this.scene.add(this.particles);
 
                 this.mouseX = 0;
                 this.mouseY = 0;
+                this.pulse = 0; // Для пульсации
+                
                 document.addEventListener('mousemove', (e) => {
                     this.mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
                     this.mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
@@ -660,28 +664,36 @@
             animate() {
                 requestAnimationFrame(this.animate.bind(this));
                 
-                // РЕАКЦИЯ НА БИТЫ (НИЗКИЕ ЧАСТОТЫ)
-                let beatFactor = 0;
+                // ЛОГИКА РЕАКЦИИ ТОЛЬКО НА КИК
                 if (window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
                     window.globalAudio.analyser.getByteFrequencyData(window.globalAudio.dataArray);
                     
-                    // Биты обычно находятся в первых корзинах частот (0-2) при fftSize 64
-                    let bassAvg = (window.globalAudio.dataArray[0] + window.globalAudio.dataArray[1] + window.globalAudio.dataArray[2]) / 3;
+                    // Берем самую низкую частоту (кик)
+                    let kickValue = window.globalAudio.dataArray[0];
                     
-                    // Порог срабатывания: реагируем только на сильные удары баса
-                    if (bassAvg > 185) { 
-                        beatFactor = (bassAvg / 255) * 1.5; 
+                    // Порог: реагируем только на очень сильный удар (выше 210)
+                    // Это отсекает постоянную басовую линию и оставляет только импульс кика
+                    if (kickValue > 210) { 
+                        this.pulse = 1.0; 
                     } else {
-                        beatFactor = (bassAvg / 255) * 0.15; // Легкий фоновый эффект
+                        // Плавное затухание пульсации
+                        this.pulse *= 0.92;
                     }
+                } else {
+                    this.pulse *= 0.92;
                 }
 
-                // Увеличенное вращение и пульсация на битах
-                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (beatFactor * 0.08);
+                // Вращение: базовое + ускорение на кике
+                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (this.pulse * 0.1);
                 this.particles.rotation.x += (this.mouseY * 0.005);
                 
-                const s = 1 + (beatFactor * 0.6);
+                // ПУЛЬСАЦИЯ МАСШТАБА
+                const s = 1 + (this.pulse * 0.8);
                 this.particles.scale.set(s, s, s);
+                
+                // ПУЛЬСАЦИЯ ЯРКОСТИ/РАЗМЕРА ТОЧЕК
+                this.particles.material.size = 0.02 + (this.pulse * 0.05);
+                this.particles.material.opacity = 0.3 + (this.pulse * 0.7);
                 
                 this.renderer.render(this.scene, this.camera);
             }
@@ -785,7 +797,7 @@
         
         class GlobalMusicPlayer {
             constructor() {
-                window.globalAudio = this; // Экспортируем в глобальную область для World.animate
+                window.globalAudio = this; 
                 this.audio = new Audio();
                 this.audio.crossOrigin = "anonymous";
                 this.ctx = null;
