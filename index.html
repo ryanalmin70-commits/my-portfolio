@@ -37,11 +37,9 @@
             min-height: 100vh;
         }
 
-        /* --- СКРОЛЛБАР --- */
         ::-webkit-scrollbar { width: 4px; background: var(--c-bg); }
         ::-webkit-scrollbar-thumb { background: var(--c-accent); box-shadow: 0 0 10px var(--c-accent); }
 
-        /* --- UI LAYERS --- */
         #canvas-container {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 1; opacity: 0; transition: opacity 2s ease;
@@ -67,7 +65,6 @@
             pointer-events: none; z-index: 92;
         }
 
-        /* --- PRELOADER --- */
         .loader-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--c-bg); z-index: 9999;
@@ -78,7 +75,6 @@
         .loader-bar-bg { width: 100%; height: 2px; background: #111; position: relative; overflow: hidden; }
         .loader-bar-fill { width: 0%; height: 100%; background: var(--c-accent); box-shadow: 0 0 20px var(--c-accent); }
 
-        /* --- CURSOR --- */
         .cursor-dot, .cursor-circle {
             position: fixed; top: 0; left: 0; transform: translate(-50%, -50%);
             pointer-events: none; z-index: 20000; border-radius: 50%;
@@ -91,7 +87,6 @@
         }
         .cursor-circle.hovered { width: 80px; height: 80px; background: rgba(255, 0, 21, 0.1); border-color: transparent; }
 
-        /* --- MAIN UI GRID --- */
         .ui-grid {
             position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
             display: grid; grid-template-columns: 100px 1fr 100px; grid-template-rows: 100px 1fr 100px;
@@ -189,7 +184,6 @@
             max-width: 300px; opacity: 0.7;
         }
 
-        /* --- ОКНО АРХИВА (PROJECTS) --- */
         #archive-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.98); z-index: 14000;
@@ -270,7 +264,6 @@
             100% { opacity: 0.6; transform: scale(0.9); }
         }
 
-        /* --- МОДАЛЬНОЕ ОКНО ДЕТАЛЕЙ --- */
         .project-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.96); z-index: 15000;
@@ -332,7 +325,6 @@
         }
         .p-link:hover { color: var(--c-accent); letter-spacing: 2px; }
 
-        /* --- ACCESS SYSTEM STYLES --- */
         #access-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 18000; display: none; opacity: 0;
@@ -361,7 +353,6 @@
         .gallery-item { width: 100%; aspect-ratio: 1; object-fit: cover; border: 1px solid #222; filter: grayscale(1); transition: 0.5s; }
         .gallery-item:hover { filter: grayscale(0); border-color: var(--c-accent); }
 
-        /* --- INFO MODAL STYLES --- */
         #info-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.95); z-index: 16000;
@@ -378,7 +369,6 @@
         #info-modal.active .info-inner { transform: scale(1); }
         .skill-tag { padding: 5px 15px; border: 1px solid var(--c-accent); font-size: 10px; color: #fff; background: rgba(255,0,21,0.1); }
 
-        /* --- PROTOTYPES MODAL STYLES --- */
         #proto-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.96); z-index: 17000;
@@ -406,7 +396,6 @@
             .modal-inner { grid-template-columns: 1fr; }
         }
 
-        /* --- NEW MUSIC WIDGET STYLES --- */
         .music-widget-container {
             position: fixed; bottom: 30px; right: 30px; z-index: 20000;
             display: flex; flex-direction: column; align-items: flex-end;
@@ -653,9 +642,11 @@
                 this.mouseY = 0;
                 this.pulse = 0;
                 
-                // --- НОВАЯ СИСТЕМА ДЕТЕКЦИИ ---
+                // --- СИСТЕМА ДЕТЕКЦИИ KICK (ПИКСЕЛЬНАЯ ТОЧНОСТЬ) ---
                 this.lastKickTime = 0;
-                this.maxBassObserved = 0; // Пиковый уровень баса
+                this.bassHistory = new Float32Array(30).fill(0); // История громкости
+                this.historyIndex = 0;
+                this.adaptiveThreshold = 1.5; // Коэффициент превышения над средним
                 
                 document.addEventListener('mousemove', (e) => {
                     this.mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -671,41 +662,49 @@
                 if (window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
                     window.globalAudio.analyser.getByteFrequencyData(window.globalAudio.dataArray);
                     
-                    // Берем суб-бас (самый низ, где живет кик)
-                    let currentBass = window.globalAudio.dataArray[1]; 
+                    // 1. Берем сумму самых низких частот (суб-бас)
+                    // Мы не берем только один бин, а суммируем 1 и 2, чтобы не пропустить частоту кика
+                    let currentBass = (window.globalAudio.dataArray[1] + window.globalAudio.dataArray[2]) / 2;
                     
-                    // Динамическое обновление пика
-                    if (currentBass > this.maxBassObserved) {
-                        this.maxBassObserved = currentBass;
-                    } else {
-                        // Постепенно снижаем "память" о пике, чтобы адаптироваться к тихим частям трека
-                        this.maxBassObserved *= 0.998;
-                    }
+                    // 2. Считаем среднюю громкость за последние 30 кадров
+                    let avgBass = 0;
+                    for(let i=0; i<this.bassHistory.length; i++) avgBass += this.bassHistory[i];
+                    avgBass /= this.bassHistory.length;
 
                     let now = performance.now();
                     
-                    // ПИКОВЫЙ ДЕТЕКТОР:
-                    // Если звук выше 85% от максимального зафиксированного баса
-                    // И прошло хотя бы 120мс (чтобы не дребезжало)
-                    if (currentBass > 140 && currentBass > this.maxBassObserved * 0.85 && (now - this.lastKickTime > 120)) { 
+                    // 3. УСЛОВИЕ УДАРА: 
+                    // - Текущий бас должен быть выше минимального порога (100)
+                    // - Текущий бас должен быть в 1.5 раза выше среднего фона
+                    // - Прошло минимум 130мс с прошлого удара
+                    if (currentBass > 100 && currentBass > avgBass * this.adaptiveThreshold && (now - this.lastKickTime > 130)) { 
                         isKick = true;
                         this.lastKickTime = now;
+                        // После удара временно повышаем порог, чтобы не ловить "эхо"
+                        this.adaptiveThreshold = 1.8;
+                    } else {
+                        // Плавно возвращаем чувствительность
+                        this.adaptiveThreshold = Math.max(1.4, this.adaptiveThreshold * 0.995);
                     }
+
+                    // Обновляем историю
+                    this.bassHistory[this.historyIndex] = currentBass;
+                    this.historyIndex = (this.historyIndex + 1) % this.bassHistory.length;
                 }
 
                 if (isKick) {
                     this.pulse = 1.0; 
                 } else {
-                    this.pulse *= 0.88; // Еще более резкое затухание для четкости
+                    this.pulse *= 0.85; // Быстрое затухание для четких вспышек
                 }
 
-                // Влияние на частицы
-                const s = 1 + (this.pulse * 1.2); // Увеличил размах пульсации
+                // Анимация частиц
+                const s = 1 + (this.pulse * 1.5);
                 this.particles.scale.set(s, s, s);
-                this.particles.material.size = 0.02 + (this.pulse * 0.12);
-                this.particles.material.opacity = 0.2 + (this.pulse * 0.8);
+                this.particles.material.size = 0.02 + (this.pulse * 0.15);
+                this.particles.material.opacity = 0.3 + (this.pulse * 0.7);
 
-                this.particles.rotation.y += 0.001 + (this.mouseX * 0.002) + (this.pulse * 0.05);
+                this.particles.rotation.y += 0.001 + (this.mouseX * 0.002) + (this.pulse * 0.08);
                 this.particles.rotation.x += (this.mouseY * 0.002);
                 
                 this.renderer.render(this.scene, this.camera);
@@ -833,7 +832,7 @@
                     this.source = this.ctx.createMediaElementSource(this.audio);
                     this.source.connect(this.analyser);
                     this.analyser.connect(this.ctx.destination);
-                    this.analyser.fftSize = 256; // Меньше FFT — быстрее реакция
+                    this.analyser.fftSize = 512; 
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
                     this.draw();
                 }
@@ -910,13 +909,10 @@
 
         function openArchive() { document.getElementById('archive-modal').style.display = 'block'; gsap.to('#archive-modal', { opacity: 1 }); }
         function closeArchive() { gsap.to('#archive-modal', { opacity: 0, onComplete: () => document.getElementById('archive-modal').style.display = 'none' }); }
-        
         function openInfo() { document.getElementById('info-modal').style.display = 'block'; setTimeout(() => document.getElementById('info-modal').classList.add('active'), 10); gsap.to('#info-modal', { opacity: 1 }); }
         function closeInfo() { document.getElementById('info-modal').classList.remove('active'); gsap.to('#info-modal', { opacity: 0, onComplete: () => document.getElementById('info-modal').style.display = 'none' }); }
-        
         function openPrototypes() { document.getElementById('proto-modal').style.display = 'flex'; gsap.to('#proto-modal', { opacity: 1 }); renderVersions('hono'); renderVersions('aurora'); }
         function closePrototypes() { gsap.to('#proto-modal', { opacity: 0, onComplete: () => document.getElementById('proto-modal').style.display = 'none' }); }
-        
         function openAccess() { document.getElementById('access-overlay').style.display = 'flex'; gsap.to('#access-overlay', { opacity: 1 }); document.getElementById('code-input').focus(); }
         function closeAccess() { gsap.to('#access-overlay', { opacity: 0, onComplete: () => document.getElementById('access-overlay').style.display = 'none' }); }
         function unlockSecret() { document.getElementById('access-overlay').style.display = 'none'; document.getElementById('gallery-overlay').style.display = 'block'; }
