@@ -75,6 +75,50 @@
         .loader-bar-bg { width: 100%; height: 2px; background: #111; position: relative; overflow: hidden; }
         .loader-bar-fill { width: 0%; height: 100%; background: var(--c-accent); box-shadow: 0 0 20px var(--c-accent); }
 
+        /* --- HARDCORE LAUNCH SEQUENCE --- */
+        #launch-sequence {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 15000; display: none;
+            padding: 40px; overflow: hidden;
+            flex-direction: column; justify-content: center; align-items: center;
+        }
+        
+        #launch-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; opacity: 0.3;
+        }
+
+        .launch-log {
+            font-size: 10px; color: var(--c-accent); width: 100%; max-width: 800px;
+            height: 350px; overflow: hidden; position: relative;
+            background: rgba(10,0,0,0.5); border: 1px solid var(--c-accent-dim);
+            padding: 20px; box-shadow: inset 0 0 30px rgba(255,0,0,0.1);
+        }
+
+        .launch-scanner {
+            position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+            background: var(--c-accent); box-shadow: 0 0 30px var(--c-accent);
+            animation: scan 1.5s linear infinite; z-index: 2;
+        }
+        
+        .glitch-flash {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--c-accent); opacity: 0; pointer-events: none; z-index: 5;
+        }
+
+        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+
+        @keyframes glitch-anim {
+            0% { transform: translate(0); }
+            20% { transform: translate(-5px, 5px); }
+            40% { transform: translate(-5px, -5px); }
+            60% { transform: translate(5px, 5px); }
+            80% { transform: translate(5px, -5px); }
+            100% { transform: translate(0); }
+        }
+        .glitch-active { animation: glitch-anim 0.1s infinite; filter: hue-rotate(90deg); }
+
+        /* --- КУРСОР --- */
         .cursor-dot, .cursor-circle {
             position: fixed; top: 0; left: 0; transform: translate(-50%, -50%);
             pointer-events: none; z-index: 20000; border-radius: 50%;
@@ -453,6 +497,16 @@
         <div class="loader-bar-bg"><div class="loader-bar-fill" id="loader-bar"></div></div>
     </div>
 
+    <div id="launch-sequence">
+        <div class="glitch-flash" id="flash"></div>
+        <canvas id="launch-canvas"></canvas>
+        <div class="loader-text" style="font-size: 24px; margin-bottom: 30px; letter-spacing: 10px; text-shadow: 0 0 15px var(--c-accent);">OVERRIDING...</div>
+        <div class="launch-log" id="launch-log-container">
+            <div class="launch-scanner"></div>
+        </div>
+        <div class="loader-text" id="launch-percent" style="margin-top: 20px; font-size: 18px;">0%</div>
+    </div>
+
     <div id="access-overlay">
         <div class="modal-close mouse-hover" onclick="closeAccess()">[ ABORT ]</div>
         <div class="access-box" id="access-container">
@@ -548,7 +602,7 @@
         <div class="header-top">
             <div class="logo mouse-hover">RAW<span>.CORE</span></div>
             <nav class="nav-links">
-                <div class="nav-item mouse-hover" onclick="openArchive()">Архив</div>
+                <div class="nav-item mouse-hover" onclick="startProjectSequence()">Архив</div>
                 <div class="nav-item mouse-hover" onclick="openPrototypes()">Прототипы</div>
                 <div class="nav-item mouse-hover" onclick="openInfo()">Инфо</div>
                 <div class="nav-item mouse-hover" style="color: var(--c-accent);" onclick="openAccess()">[ ACCESS ]</div>
@@ -641,8 +695,6 @@
                 this.mouseX = 0;
                 this.mouseY = 0;
                 this.pulse = 0;
-                
-                // --- ЭНЕРГЕТИЧЕСКИЙ ДЕТЕКТОР КИКА ---
                 this.lastKickTime = 0;
                 this.energyHistory = new Float32Array(40).fill(0); 
                 this.historyIdx = 0;
@@ -655,58 +707,35 @@
             
             animate() {
                 requestAnimationFrame(this.animate.bind(this));
-                
                 let isKick = false;
 
                 if (window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
                     window.globalAudio.analyser.getByteFrequencyData(window.globalAudio.dataArray);
-                    
-                    // 1. Считаем энергию низких частот (диапазон баса 0-15 бинов)
                     let currentEnergy = 0;
-                    for(let i=0; i<15; i++) {
-                        currentEnergy += window.globalAudio.dataArray[i];
-                    }
+                    for(let i=0; i<15; i++) currentEnergy += window.globalAudio.dataArray[i];
                     currentEnergy /= 15;
 
-                    // 2. Считаем среднюю энергию фона
                     let avgEnergy = 0;
                     for(let i=0; i<this.energyHistory.length; i++) avgEnergy += this.energyHistory[i];
                     avgEnergy /= this.energyHistory.length;
 
                     let now = performance.now();
-                    
-                    // 3. ПРОВЕРКА НА ВСПЛЕСК ЭНЕРГИИ (КИК)
-                    // Если энергия в 1.3 раза выше средней и прошло 150мс
                     if (currentEnergy > 70 && currentEnergy > avgEnergy * 1.35 && (now - this.lastKickTime > 150)) { 
                         isKick = true;
                         this.lastKickTime = now;
                     }
-
-                    // Обновляем историю
                     this.energyHistory[this.historyIdx] = currentEnergy;
                     this.historyIdx = (this.historyIdx + 1) % this.energyHistory.length;
-                    
-                    // Отладочный визуализатор (в мини-плеере появится белая полоска пульса)
-                    if(window.globalAudio.cCtx && isKick) {
-                         window.globalAudio.cCtx.fillStyle = '#fff';
-                         window.globalAudio.cCtx.fillRect(0, 0, 5, 50);
-                    }
                 }
 
-                if (isKick) {
-                    this.pulse = 1.0; 
-                } else {
-                    this.pulse *= 0.82; // Резкое затухание для динамики
-                }
+                if (isKick) this.pulse = 1.0; else this.pulse *= 0.82;
 
                 const s = 1 + (this.pulse * 1.8);
                 this.particles.scale.set(s, s, s);
                 this.particles.material.size = 0.02 + (this.pulse * 0.18);
                 this.particles.material.opacity = 0.2 + (this.pulse * 0.8);
-
                 this.particles.rotation.y += 0.001 + (this.mouseX * 0.002) + (this.pulse * 0.1);
                 this.particles.rotation.x += (this.mouseY * 0.002);
-                
                 this.renderer.render(this.scene, this.camera);
             }
         }
@@ -715,7 +744,7 @@
             constructor() {
                 this.currentProtoIndex = 0;
                 this.renderProjects();
-                document.getElementById('explore-btn').onclick = openArchive;
+                document.getElementById('explore-btn').onclick = startProjectSequence;
                 document.getElementById('code-input').addEventListener('input', (e) => {
                     if(e.target.value === '170310') unlockSecret();
                 });
@@ -757,10 +786,7 @@
 
         class AudioModule {
             constructor() {
-                this.ctx = null;
-                this.analyser = null;
-                this.dataArray = null;
-                this.source = null;
+                this.ctx = null; this.analyser = null; this.dataArray = null; this.source = null;
                 this.canvas = document.getElementById('viz-canvas');
                 this.canvasCtx = this.canvas.getContext('2d');
                 this.audio = document.getElementById('main-audio');
@@ -774,26 +800,17 @@
                     this.source.connect(this.analyser);
                     this.analyser.connect(this.ctx.destination);
                     this.analyser.fftSize = 2048; 
-                    const bufferLength = this.analyser.frequencyBinCount;
-                    this.dataArray = new Uint8Array(bufferLength);
+                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
                 }
-                this.audio.src = path;
-                this.audio.crossOrigin = "anonymous";
-                this.audio.play();
-                if(!this.isAnimating) {
-                    this.isAnimating = true;
-                    this.draw();
-                }
+                this.audio.src = path; this.audio.crossOrigin = "anonymous"; this.audio.play();
+                if(!this.isAnimating) { this.isAnimating = true; this.draw(); }
             }
             draw() {
                 if(!this.isAnimating) return;
                 requestAnimationFrame(() => this.draw());
                 this.analyser.getByteFrequencyData(this.dataArray);
-                
                 this.canvasCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                const barWidth = (this.canvas.width / 128) * 2;
-                let x = 0;
-
+                const barWidth = (this.canvas.width / 128) * 2; let x = 0;
                 for(let i = 0; i < 128; i++) {
                     const barHeight = (this.dataArray[i] / 255) * this.canvas.height;
                     this.canvasCtx.fillStyle = `rgb(255, 0, 21)`;
@@ -801,30 +818,19 @@
                     x += barWidth;
                 }
             }
-            stop() { 
-                this.audio.pause(); 
-                this.isAnimating = false;
-            }
+            stop() { this.audio.pause(); this.isAnimating = false; }
         }
         
         class GlobalMusicPlayer {
             constructor() {
                 window.globalAudio = this; 
-                this.audio = new Audio();
-                this.audio.crossOrigin = "anonymous";
-                this.ctx = null;
-                this.analyser = null;
-                this.source = null;
+                this.audio = new Audio(); this.audio.crossOrigin = "anonymous";
+                this.ctx = null; this.analyser = null; this.source = null;
                 this.canvas = document.getElementById('mini-viz-canvas');
                 this.cCtx = this.canvas.getContext('2d');
-                this.isPlaying = false;
-                this.currentTrack = 0;
-                this.isPanelOpen = false;
-                this.dataArray = null;
-                
+                this.isPlaying = false; this.currentTrack = 0; this.isPanelOpen = false; this.dataArray = null;
                 this.audio.addEventListener('ended', () => this.next());
             }
-
             initContext() {
                 if(!this.ctx) {
                     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -837,53 +843,33 @@
                     this.draw();
                 }
             }
-
             togglePanel() {
                 this.isPanelOpen = !this.isPanelOpen;
                 const p = document.getElementById('music-panel');
-                if(this.isPanelOpen) {
-                    p.classList.add('active');
-                    this.initContext();
-                    if(!this.audio.src) this.loadTrack(0);
-                } else {
-                    p.classList.remove('active');
-                }
+                if(this.isPanelOpen) { p.classList.add('active'); this.initContext(); if(!this.audio.src) this.loadTrack(0); } 
+                else { p.classList.remove('active'); }
             }
-
             loadTrack(idx) {
                 this.currentTrack = idx;
                 this.audio.src = PLAYLIST[idx].src;
                 document.getElementById('m-track-title').innerText = PLAYLIST[idx].title;
             }
-
             togglePlay() {
                 this.initContext();
-                if(this.isPlaying) {
-                    this.audio.pause();
-                    document.getElementById('play-pause-btn').innerText = "PLAY";
-                } else {
-                    if (this.ctx.state === 'suspended') this.ctx.resume();
-                    this.audio.play();
-                    document.getElementById('play-pause-btn').innerText = "PAUSE";
-                }
+                if(this.isPlaying) { this.audio.pause(); document.getElementById('play-pause-btn').innerText = "PLAY"; } 
+                else { if (this.ctx.state === 'suspended') this.ctx.resume(); this.audio.play(); document.getElementById('play-pause-btn').innerText = "PAUSE"; }
                 this.isPlaying = !this.isPlaying;
             }
-
             next() {
                 this.currentTrack = (this.currentTrack + 1) % PLAYLIST.length;
-                this.loadTrack(this.currentTrack);
-                if(this.isPlaying) this.audio.play();
+                this.loadTrack(this.currentTrack); if(this.isPlaying) this.audio.play();
             }
-
             draw() {
                 requestAnimationFrame(() => this.draw());
                 if(!this.isPanelOpen || !this.dataArray) return;
-                
                 this.analyser.getByteFrequencyData(this.dataArray);
                 this.cCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                const barWidth = (this.canvas.width / 64) * 2;
-                let x = 0;
-                
+                const barWidth = (this.canvas.width / 64) * 2; let x = 0;
                 for(let i=0; i < 64; i++) {
                     const h = (this.dataArray[i] / 255) * this.canvas.height;
                     this.cCtx.fillStyle = `rgb(255, 0, 21)`;
@@ -897,14 +883,86 @@
             constructor(cb) {
                 let p = 0;
                 const int = setInterval(() => {
-                    p += 2;
-                    document.getElementById('loader-bar').style.width = p + '%';
-                    if(p >= 100) {
-                        clearInterval(int);
-                        gsap.to('#loader', { yPercent: -100, duration: 1, onComplete: cb });
-                    }
+                    p += 2; document.getElementById('loader-bar').style.width = p + '%';
+                    if(p >= 100) { clearInterval(int); gsap.to('#loader', { yPercent: -100, duration: 1, onComplete: cb }); }
                 }, 30);
             }
+        }
+
+        /* --- ЛОГИКА АНИМАЦИИ ЗАПУСКА --- */
+        function startProjectSequence() {
+            const sequence = document.getElementById('launch-sequence');
+            const logContainer = document.getElementById('launch-log-container');
+            const percent = document.getElementById('launch-percent');
+            const flash = document.getElementById('flash');
+            const canvas = document.getElementById('launch-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            sequence.style.display = 'flex';
+            gsap.fromTo(sequence, { opacity: 0 }, { opacity: 1, duration: 0.5 });
+
+            // Матричный дождь
+            const chars = "RAWCORE01X_#!?";
+            const fontSize = 14;
+            const columns = canvas.width / fontSize;
+            const drops = Array(Math.floor(columns)).fill(1);
+
+            function drawMatrix() {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#ff0015";
+                ctx.font = fontSize + "px monospace";
+                for (let i = 0; i < drops.length; i++) {
+                    const text = chars[Math.floor(Math.random() * chars.length)];
+                    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                    drops[i]++;
+                }
+            }
+            const matrixInt = setInterval(drawMatrix, 33);
+
+            const logs = [
+                "CRACKING DATABASE...", "INJECTING CORE...", "BYPASSING FIREWALL...",
+                "REROUTING SIGNAL...", "EXTRACTING RAW_DATA...", "UPLOADING ASSETS...",
+                "NODE_ACCESS: GRANTED", "ENCRYPTION: REMOVED", "EXECUTING_INIT_SEQUENCE",
+                "SYNCING NEURAL NET...", "GATHERING PACKETS...", "PORT_8080: OPEN"
+            ];
+
+            let p = 0;
+            const logInterval = setInterval(() => {
+                const line = document.createElement('div');
+                line.style.cssText = "margin-bottom: 5px; text-shadow: 0 0 5px red;";
+                line.innerText = `[LOG]: ${logs[Math.floor(Math.random() * logs.length)]} -> SUCCESS`;
+                logContainer.appendChild(line);
+                logContainer.scrollTop = logContainer.scrollHeight;
+                
+                // Глитч и вспышки
+                if(Math.random() > 0.8) {
+                    sequence.classList.add('glitch-active');
+                    gsap.to(flash, { opacity: 0.2, duration: 0.05, onComplete: () => {
+                        gsap.to(flash, { opacity: 0, duration: 0.05 });
+                        sequence.classList.remove('glitch-active');
+                    }});
+                }
+
+                p += Math.random() * 4;
+                if(p > 100) p = 100;
+                percent.innerText = Math.floor(p) + "%";
+            }, 100);
+
+            setTimeout(() => {
+                clearInterval(logInterval);
+                clearInterval(matrixInt);
+                // Финальный взрыв
+                gsap.to(flash, { opacity: 1, duration: 0.2, onComplete: () => {
+                    sequence.style.display = 'none';
+                    flash.style.opacity = 0;
+                    openArchive();
+                }});
+            }, 5500); 
         }
 
         function openArchive() { document.getElementById('archive-modal').style.display = 'block'; gsap.to('#archive-modal', { opacity: 1 }); }
