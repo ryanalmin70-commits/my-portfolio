@@ -641,7 +641,7 @@
                 this.container.appendChild(this.renderer.domElement);
                 this.camera.position.z = 5;
                 
-                // 15,000 ТОЧЕК КАК ЗАПРАШИВАЛИ
+                // 15,000 ТОЧЕК
                 const particleCount = 15000;
                 const geo = new THREE.BufferGeometry();
                 const pos = new Float32Array(particleCount * 3);
@@ -654,9 +654,9 @@
                 this.mouseY = 0;
                 this.pulse = 0;
                 
-                // Детектор кика
-                this.history = [];
-                this.energySum = 0;
+                // ПАРАМЕТРЫ ДЛЯ ДЕТЕКЦИИ ИМЕННО КИКА
+                this.prevBass = 0;
+                this.lastKickTime = 0;
                 
                 document.addEventListener('mousemove', (e) => {
                     this.mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -672,41 +672,43 @@
                 if (window.globalAudio && window.globalAudio.isPlaying && window.globalAudio.dataArray) {
                     window.globalAudio.analyser.getByteFrequencyData(window.globalAudio.dataArray);
                     
-                    // АНАЛИЗ ТОЛЬКО ПОД-БАСА (первые 3 бина при 2048 fftSize это ~20-60 Гц)
-                    let currentBass = 0;
-                    for(let i=0; i<3; i++) currentBass += window.globalAudio.dataArray[i];
-                    currentBass /= 3;
+                    // БИН 1 — Это область ~40-60Гц (самый центр кика)
+                    let currentBass = window.globalAudio.dataArray[1];
+                    
+                    // ДЕЛЬТА: насколько резко вырос звук по сравнению с прошлым кадром
+                    let delta = currentBass - this.prevBass;
+                    this.prevBass = currentBass;
 
-                    // Вычисляем среднюю энергию баса за последние 30 кадров
-                    this.energySum += currentBass;
-                    this.history.push(currentBass);
-                    if(this.history.length > 30) {
-                        this.energySum -= this.history.shift();
-                    }
-                    let avgEnergy = this.energySum / this.history.length;
-
-                    // ЕСЛИ ТЕКУЩИЙ УДАР В 1.4 РАЗА СИЛЬНЕЕ СРЕДНЕГО + ПОРОГ ГРОМКОСТИ
-                    // Это отсекает мелодию и ровный бас, реагируя на транзиент (удар)
-                    if (currentBass > avgEnergy * 1.4 && currentBass > 180) { 
+                    let now = performance.now();
+                    
+                    // ЛОГИКА ТРАНЗИЕНТА:
+                    // 1. Дельта должна быть большой (резкий удар)
+                    // 2. Громкость должна быть выше порога
+                    // 3. Должно пройти минимум 150мс с прошлого удара (чтобы не путать с мелодией)
+                    if (delta > 35 && currentBass > 185 && (now - this.lastKickTime > 160)) { 
                         isKick = true;
+                        this.lastKickTime = now;
                     }
                 }
 
                 if (isKick) {
-                    this.pulse = 1.0; // Вспышка пульсации
+                    this.pulse = 1.0; 
                 } else {
-                    this.pulse *= 0.9; // Плавное затухание
+                    // Медленное затухание для плавности пульсации
+                    this.pulse *= 0.91;
                 }
 
-                // Визуальный эффект пульсации
-                const s = 1 + (this.pulse * 0.7);
+                // ЭФФЕКТ ПУЛЬСАЦИИ (Scale + Opacity)
+                const s = 1 + (this.pulse * 0.9);
                 this.particles.scale.set(s, s, s);
-                this.particles.material.size = 0.02 + (this.pulse * 0.08);
-                this.particles.material.opacity = 0.3 + (this.pulse * 0.7);
+                
+                // Точки не "летят", а пульсируют яркостью и размером
+                this.particles.material.size = 0.02 + (this.pulse * 0.1);
+                this.particles.material.opacity = 0.2 + (this.pulse * 0.8);
 
-                // Вращение
-                this.particles.rotation.y += 0.001 + (this.mouseX * 0.005) + (this.pulse * 0.05);
-                this.particles.rotation.x += (this.mouseY * 0.005);
+                // Вращение (зависит от мышки + легкое ускорение на кике)
+                this.particles.rotation.y += 0.001 + (this.mouseX * 0.002) + (this.pulse * 0.02);
+                this.particles.rotation.x += (this.mouseY * 0.002);
                 
                 this.renderer.render(this.scene, this.camera);
             }
@@ -774,7 +776,7 @@
                     this.source = this.ctx.createMediaElementSource(this.audio);
                     this.source.connect(this.analyser);
                     this.analyser.connect(this.ctx.destination);
-                    this.analyser.fftSize = 2048; // ПОВЫШЕННАЯ ТОЧНОСТЬ
+                    this.analyser.fftSize = 2048; 
                     const bufferLength = this.analyser.frequencyBinCount;
                     this.dataArray = new Uint8Array(bufferLength);
                 }
@@ -833,7 +835,7 @@
                     this.source = this.ctx.createMediaElementSource(this.audio);
                     this.source.connect(this.analyser);
                     this.analyser.connect(this.ctx.destination);
-                    this.analyser.fftSize = 2048; // ПОВЫШЕННАЯ ТОЧНОСТЬ
+                    this.analyser.fftSize = 2048; 
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
                     this.draw();
                 }
