@@ -508,6 +508,24 @@
             padding: 5px 15px; font-size: 10px; cursor: pointer !important; transition: 0.2s; 
         }
         .m-btn:hover { border-color: var(--c-accent); background: #000; color: #fff; }
+
+        /* SECURITY ADDONS */
+        .damage-vignette {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 30000;
+            box-shadow: inset 0 0 100px rgba(255, 0, 0, 0);
+            transition: box-shadow 0.3s;
+        }
+        #horror-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 50000; display: none;
+            justify-content: center; align-items: center;
+        }
+        .horror-text {
+            color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 18px;
+            letter-spacing: 5px; opacity: 0; animation: horror-fade 4s forwards;
+        }
+        @keyframes horror-fade { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
     </style>
 </head>
 <body>
@@ -518,11 +536,16 @@
     <div class="scanlines"></div>
     <div class="cursor-dot"></div>
     <div class="cursor-circle"></div>
+    <div class="damage-vignette" id="damage-vignette"></div>
 
     <div class="loader-screen" id="loader">
         <div class="loader-text">INITIALIZING CORE SYSTEMS...</div>
         <div class="loader-text" id="loader-log">Loading assets modules...</div>
         <div class="loader-bar-bg"><div class="loader-bar-fill" id="loader-bar"></div></div>
+    </div>
+
+    <div id="horror-screen">
+        <div class="horror-text">тебя здесь не должно быть...</div>
     </div>
 
     <div id="launch-sequence">
@@ -692,6 +715,8 @@
             { title: "Aurora Theme", src: "audio/track2.mp3" }
         ];
 
+        let accessAttempts = 3;
+
         class Core {
             constructor() {
                 this.world = new World();
@@ -774,7 +799,14 @@
                 this.renderProjects();
                 document.getElementById('explore-btn').onclick = startProjectSequence;
                 document.getElementById('code-input').addEventListener('input', (e) => {
-                    if(e.target.value === '170310') unlockSecret();
+                    if(e.target.value.length === 6) {
+                        if(e.target.value === '170310') {
+                            unlockSecret();
+                        } else {
+                            processWrongCode();
+                            e.target.value = '';
+                        }
+                    }
                 });
             }
             renderProjects() {
@@ -793,6 +825,35 @@
                 gsap.from('.hero-title', { opacity: 0, y: 50, stagger: 0.3 });
                 setInterval(() => document.getElementById('fps-counter').innerText = Math.floor(58+Math.random()*4), 500);
             }
+        }
+
+        function processWrongCode() {
+            accessAttempts--;
+            document.getElementById('access-status').innerText = `ACCESS DENIED (ATTEMPTS: ${accessAttempts})`;
+            
+            const vignette = document.getElementById('damage-vignette');
+            vignette.style.boxShadow = 'inset 0 0 100px rgba(255, 0, 0, 0.8)';
+            
+            gsap.to('body', { x: 20, duration: 0.05, repeat: 5, yoyo: true });
+            setTimeout(() => {
+                vignette.style.boxShadow = 'inset 0 0 100px rgba(255, 0, 0, 0)';
+            }, 300);
+
+            if(accessAttempts <= 0) {
+                triggerHorror();
+            }
+        }
+
+        function triggerHorror() {
+            if(window.globalAudio) window.globalAudio.audio.pause();
+            const horror = document.getElementById('horror-screen');
+            horror.style.display = 'flex';
+            
+            const horrorAudio = new Audio('audio/track3.mp3');
+            horrorAudio.play();
+            horrorAudio.onended = () => {
+                location.reload();
+            };
         }
 
         class Cursor {
@@ -997,7 +1058,7 @@
         function closeInfo() { document.getElementById('info-modal').classList.remove('active'); gsap.to('#info-modal', { opacity: 0, onComplete: () => document.getElementById('info-modal').style.display = 'none' }); }
         function openPrototypes() { document.getElementById('proto-modal').style.display = 'flex'; gsap.to('#proto-modal', { opacity: 1 }); renderVersions('hono'); renderVersions('aurora'); }
         function closePrototypes() { gsap.to('#proto-modal', { opacity: 0, onComplete: () => document.getElementById('proto-modal').style.display = 'none' }); }
-        function openAccess() { document.getElementById('access-overlay').style.display = 'flex'; gsap.to('#access-overlay', { opacity: 1 }); document.getElementById('code-input').focus(); }
+        function openAccess() { accessAttempts = 3; document.getElementById('access-status').innerText = 'AWAITING INPUT (ATTEMPTS: 3)'; document.getElementById('access-overlay').style.display = 'flex'; gsap.to('#access-overlay', { opacity: 1 }); document.getElementById('code-input').focus(); }
         function closeAccess() { gsap.to('#access-overlay', { opacity: 0, onComplete: () => document.getElementById('access-overlay').style.display = 'none' }); }
         function unlockSecret() { document.getElementById('access-overlay').style.display = 'none'; document.getElementById('gallery-overlay').style.display = 'block'; }
 
