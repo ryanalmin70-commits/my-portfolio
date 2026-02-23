@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RAW.CORE | SYSTEM ACCESS</title>
+    <link rel="icon" type="image/png" href="favicon.png">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -35,6 +36,12 @@
             overflow-x: hidden;
             width: 100vw;
             min-height: 100vh;
+        }
+
+        /* Класс для блокировки скролла */
+        body.no-scroll {
+            overflow: hidden !important;
+            height: 100vh;
         }
 
         ::-webkit-scrollbar { width: 4px; background: var(--c-bg); }
@@ -133,23 +140,24 @@
         .cursor-circle.hovered { width: 80px; height: 80px; background: rgba(0, 0, 0, 0.1); border-color: transparent; }
 
         .ui-grid {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
-            display: grid; grid-template-columns: 100px 1fr 100px; grid-template-rows: 100px 1fr 100px;
+            position: relative; top: 0; left: 0; width: 100%; min-height: 100vh;
+            display: grid; grid-template-columns: 100px 1fr 100px; 
             z-index: 100; pointer-events: none;
         }
 
         .header-top {
-            grid-column: 2; grid-row: 1;
+            grid-column: 2; height: 100px;
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid var(--c-grid);
             pointer-events: auto;
             backdrop-filter: blur(5px);
+            position: sticky; top: 0; z-index: 1000;
         }
 
         .logo { font-family: var(--f-head); font-weight: 700; font-size: 24px; letter-spacing: -1px; color: #000; }
         .logo span { color: #888; }
         
-        .nav-links { display: flex; gap: 40px; }
+        .nav-links { display: flex; gap: 40px; align-items: center; }
         .nav-item { 
             font-size: 10px; letter-spacing: 2px; color: #999; text-transform: uppercase; 
             transition: 0.3s; position: relative; overflow: hidden; text-decoration: none;
@@ -163,9 +171,12 @@
         .nav-item:hover::before { transform: translateX(0); }
 
         .content-center {
-            grid-column: 2; grid-row: 2;
+            grid-column: 2; 
+            min-height: calc(100vh - 200px);
             display: flex; flex-direction: column; justify-content: center;
             pointer-events: auto;
+            padding-top: 50px;
+            padding-bottom: 50px;
         }
 
         .hero-label { 
@@ -215,8 +226,32 @@
             color: #000; transform: skewX(-5deg);
         }
 
+        /* БЛОК С КОНТАКТАМИ (ЯНДЕКС МУЗЫКА, ТГ И ТД) */
+        .contact-section {
+            grid-column: 2; padding: 100px 0;
+            display: flex; flex-direction: column; gap: 60px;
+            opacity: 0; transform: translateY(50px);
+            transition: 1s var(--easing);
+            pointer-events: auto;
+        }
+        .contact-section.visible { opacity: 1; transform: translateY(0); }
+        
+        .contact-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px;
+        }
+        .contact-item {
+            border: 1px solid var(--c-grid); padding: 30px;
+            display: flex; flex-direction: column; gap: 15px;
+            text-decoration: none; color: inherit; transition: 0.3s;
+            background: rgba(255,255,255,0.5); backdrop-filter: blur(5px);
+        }
+        .contact-item:hover { border-color: #000; background: #fafafa; }
+        .contact-icon { width: 24px; height: 24px; filter: grayscale(1); }
+        .contact-label { font-size: 10px; letter-spacing: 2px; color: #888; text-transform: uppercase; }
+        .contact-value { font-family: var(--f-head); font-size: 16px; }
+
         .status-panel {
-            grid-column: 2; grid-row: 3;
+            grid-column: 2; height: 100px;
             display: flex; justify-content: space-between; align-items: flex-end;
             padding-bottom: 20px; border-top: 1px solid var(--c-grid);
             backdrop-filter: blur(5px);
@@ -299,6 +334,12 @@
             background: #000;
             border-radius: 50%;
             animation: pulse-online 1.5s infinite;
+        }
+        .offline-dot {
+            width: 10px;
+            height: 10px;
+            background: #888;
+            border-radius: 50%;
         }
         @keyframes pulse-online {
             0% { opacity: 0.4; transform: scale(0.9); }
@@ -401,6 +442,7 @@
             display: none; opacity: 0;
             padding: 5vw;
             backdrop-filter: blur(30px);
+            overflow-y: auto;
         }
         .info-inner {
             max-width: 900px; margin: 0 auto;
@@ -526,9 +568,10 @@
             letter-spacing: 5px; opacity: 0; animation: horror-fade 4s forwards;
         }
         @keyframes horror-fade { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+
     </style>
 </head>
-<body>
+<body class="no-scroll">
 
     <div id="canvas-container"></div>
     <div class="overlay-noise"></div>
@@ -591,7 +634,7 @@
     <div id="proto-modal">
         <div class="modal-close mouse-hover" onclick="closePrototypes()">[ EXIT ]</div>
         <div class="proto-slider">
-            <div class="arrow-btn mouse-hover" onclick="changeProject(-1)">&lt;</div>
+            <div class="arrow-btn mouse-hover" onclick="changeProject(-1)"><</div>
             
             <div class="proto-card active" id="proto-hono">
                 <h3 class="p-title">HONO AI</h3>
@@ -605,7 +648,7 @@
                 <div class="p-text" id="aurora-log"></div>
             </div>
 
-            <div class="arrow-btn mouse-hover" onclick="changeProject(1)">&gt;</div>
+            <div class="arrow-btn mouse-hover" onclick="changeProject(1)">></div>
         </div>
     </div>
 
@@ -657,14 +700,15 @@
                 <div class="nav-item mouse-hover" onclick="openPrototypes()">Прототипы</div>
                 <div class="nav-item mouse-hover" onclick="openInfo()">Инфо</div>
                 <div class="nav-item mouse-hover" style="color: var(--c-accent);" onclick="openAccess()">[ ACCESS ]</div>
+                <div class="nav-item mouse-hover" id="header-mute-icon" onclick="toggleGlobalMute()" style="color: var(--c-accent); font-weight: bold;">[ AUDIO: ON ]</div>
             </nav>
         </div>
 
         <div class="content-center">
             <div class="hero-label">SYSTEM_OVERRIDE // 2026</div>
             <div style="position: relative;">
-                <h1 class="hero-title">ДОБРО ПОЖАЛОВАТЬ</h1>
-                <h1 class="hero-title solid">ДОБРО ПОЖАЛОВАТЬ</h1>
+                <h1 class="hero-title">ДОБРО ПОЖАЛОВЬ</h1>
+                <h1 class="hero-title solid">ДОБРО ПОЖАЛОВЬ</h1>
             </div>
             <div style="position: relative;">
                 <h1 class="hero-title">В СИСТЕМУ</h1>
@@ -672,6 +716,27 @@
             </div>
             <p class="hero-desc">Портфолио UI/UX Дизайна, музыки и кода.</p>
             <button class="btn-main mouse-hover" id="explore-btn">Запустить Проект</button>
+        </div>
+
+        <div class="contact-section" id="contact-section">
+            <div class="hero-label">EXTERNAL_CHANNELS</div>
+            <h2 class="projects-header">CONTACT_AND_MUSIC</h2>
+            <div class="contact-grid">
+                <a href="https://t.me/dir1le" target="_blank" class="contact-item mouse-hover">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2111/2111646.png" class="contact-icon" alt="Telegram">
+                    <div class="contact-label">Telegram</div>
+                    <div class="contact-value">@dir1le</div>
+                </a>
+                <a href="https://music.yandex.com/artist/23953965" target="_blank" class="contact-item mouse-hover">
+                    <img src="https://cdn-icons-png.flaticon.com/512/825/825590.png" class="contact-icon" alt="Yandex Music">
+                    <div class="contact-label">Yandex Music</div>
+                    <div class="contact-value">Artist Profile</div>
+                </a>
+                <div class="contact-item" style="grid-column: 1 / -1; padding: 20px;">
+                    <div class="contact-label">Spotify Stream</div>
+                    <iframe data-testid="embed-iframe" style="border-radius:12px; margin-top: 15px;" src="https://open.spotify.com/embed/artist/2ENsygCA7xxHVhG2YmPjT2?utm_source=generator&theme=0" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+                </div>
+            </div>
         </div>
 
         <div class="status-panel">
@@ -687,7 +752,7 @@
             <canvas id="mini-viz-canvas"></canvas>
             <div class="m-controls">
                 <div class="m-btn mouse-hover" onclick="globalAudio.togglePlay()" id="play-pause-btn">PLAY</div>
-                <div class="m-btn mouse-hover" onclick="globalAudio.next()">NEXT &gt;</div>
+                <div class="m-btn mouse-hover" onclick="globalAudio.next()">NEXT ></div>
             </div>
         </div>
         <div class="music-toggle mouse-hover" onclick="globalAudio.togglePanel()">♫</div>
@@ -695,8 +760,42 @@
 
     <script>
         const PROJECTS_DATA = [
-            { title: 'Aurora', cat: 'Messenger', desc: 'Мессенджер Аврора с множеством функций, конфидицеальностью и криптовалютой.', img: 'img/project2.jpg', audio: 'audio/track2.mp3', link: '#', hasPlayer: false, showStatus: true },
-            { title: 'Hono AI', cat: 'AI Bot', desc: 'ИИ Бот разработанный RAW.CORE по совместительству с (?), основана на множествах моделях с использованием системных промптов.', img: 'img/project3.jpg', audio: 'audio/track3.mp3', link: '#', hasPlayer: false, showStatus: true }
+            { 
+                title: 'Aurora', 
+                cat: 'Messenger', 
+                desc: 'Мессенджер Аврора с множеством функций, конфиденциальностью и криптовалютой. Включал в себя PtP шифрование и защищенную сеть SoT3Qt. Разработка была остановлена на этапе бета-тестирования v0.20.', 
+                img: 'img/project2.jpg', 
+                audio: 'audio/track2.mp3', 
+                link: 'https://t.me/dir1le_bio', 
+                hasPlayer: false, 
+                showStatus: true,
+                statusText: '(проект закрыт)',
+                isOnline: false
+            },
+            { 
+                title: 'Hono AI', 
+                cat: 'AI Bot', 
+                desc: 'ИИ Бот разработанный RAW.CORE по совместительству с (?), основан на множестве моделей с использованием системных промптов. Включает 6 модулей для памяти, размышления и сканирования фото. Установлен на личный Telegram с поддержкой долгосрочной памяти.', 
+                img: 'img/project3.jpg', 
+                audio: 'audio/track3.mp3', 
+                link: 'https://t.me/AI_Hono', 
+                hasPlayer: false, 
+                showStatus: true,
+                statusText: 'online',
+                isOnline: true
+            },
+            { 
+                title: "i can't", 
+                cat: 'Game', 
+                desc: 'Психологический хоррор на платформе Roblox, представляющий собой глубокое нарративное исследование внутреннего мира протагониста. Сюжет фокусируется на преодолении личных травм и экзистенциального кризиса через гнетущую атмосферу и иммерсивный игровой процесс.', 
+                img: 'нет доступа', 
+                audio: '', 
+                link: '#', 
+                hasPlayer: false, 
+                showStatus: false,
+                statusText: '',
+                isOnline: false
+            }
         ];
 
         const PROTO_DATA = {
@@ -716,6 +815,31 @@
         ];
 
         let accessAttempts = 3;
+        let isMuted = false;
+
+        const autoAudio = new Audio('audio/XPSW.mp3');
+        autoAudio.volume = 0.5;
+        autoAudio.loop = true;
+
+        function toggleGlobalMute() {
+            const icon = document.getElementById('header-mute-icon');
+            if(!isMuted) {
+                muteAutoAudio();
+                icon.innerText = '[ AUDIO: OFF ]';
+                icon.style.color = '#999';
+                isMuted = true;
+            } else {
+                autoAudio.play();
+                gsap.to(autoAudio, { volume: 0.5, duration: 1 });
+                icon.innerText = '[ AUDIO: ON ]';
+                icon.style.color = 'var(--c-accent)';
+                isMuted = false;
+            }
+        }
+
+        function muteAutoAudio() {
+            gsap.to(autoAudio, { volume: 0, duration: 1, onComplete: () => autoAudio.pause() });
+        }
 
         class Core {
             constructor() {
@@ -723,7 +847,23 @@
                 this.ui = new UI();
                 this.cursor = new Cursor();
                 this.audio = new AudioModule();
-                this.loader = new Loader(() => { this.world.animate(); this.ui.reveal(); });
+                this.loader = new Loader(() => { 
+                    this.world.animate(); 
+                    this.ui.reveal(); 
+                    autoAudio.play().catch(() => {
+                        document.addEventListener('click', () => { if(!isMuted) autoAudio.play() }, { once: true });
+                    });
+                });
+
+                window.addEventListener('scroll', () => {
+                    const section = document.getElementById('contact-section');
+                    if(section) {
+                        const pos = section.getBoundingClientRect().top;
+                        if(pos < window.innerHeight * 0.9) {
+                            section.classList.add('visible');
+                        }
+                    }
+                });
             }
         }
 
@@ -814,14 +954,21 @@
                 PROJECTS_DATA.forEach(p => {
                     const card = document.createElement('div');
                     card.className = 'project-card mouse-hover';
-                    const status = p.showStatus ? `<div class="online-status"><div class="online-dot"></div>online</div>` : '';
-                    card.innerHTML = `<div class="p-category">${p.cat}</div><h3 class="p-title">${p.title}</h3><p class="p-text">${p.desc}</p>${status}<div class="btn-detail" style="margin-top:20px;">OPEN STREAM</div>`;
+                    
+                    let statusHtml = '';
+                    if (p.showStatus) {
+                        const dotClass = p.isOnline ? 'online-dot' : 'offline-dot';
+                        statusHtml = `<div class="online-status"><div class="${dotClass}"></div>${p.statusText}</div>`;
+                    }
+                    
+                    card.innerHTML = `<div class="p-category">${p.cat}</div><h3 class="p-title">${p.title}</h3><p class="p-text">${p.desc}</p>${statusHtml}<div class="btn-detail" style="margin-top:20px;">OPEN STREAM</div>`;
                     card.onclick = () => openModal(p);
                     container.appendChild(card);
                 });
             }
             reveal() {
                 document.getElementById('canvas-container').style.opacity = 1;
+                document.body.classList.remove('no-scroll');
                 gsap.from('.hero-title', { opacity: 0, y: 50, stagger: 0.3 });
                 setInterval(() => document.getElementById('fps-counter').innerText = Math.floor(58+Math.random()*4), 500);
             }
@@ -830,7 +977,8 @@
         function processWrongCode() {
             accessAttempts--;
             document.getElementById('access-status').innerText = `ACCESS DENIED (ATTEMPTS: ${accessAttempts})`;
-            
+            document.body.classList.add('no-scroll');
+
             const vignette = document.getElementById('damage-vignette');
             vignette.style.boxShadow = 'inset 0 0 100px rgba(255, 0, 0, 0.8)';
             
@@ -845,9 +993,11 @@
         }
 
         function triggerHorror() {
+            muteAutoAudio();
             if(window.globalAudio) window.globalAudio.audio.pause();
             const horror = document.getElementById('horror-screen');
             horror.style.display = 'flex';
+            document.body.classList.add('no-scroll');
             
             const horrorAudio = new Audio('audio/track3.mp3');
             horrorAudio.play();
@@ -891,6 +1041,7 @@
                     this.analyser.fftSize = 2048; 
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
                 }
+                muteAutoAudio();
                 this.audio.src = path; this.audio.crossOrigin = "anonymous"; this.audio.play();
                 if(!this.isAnimating) { this.isAnimating = true; this.draw(); }
             }
@@ -946,7 +1097,10 @@
             togglePlay() {
                 this.initContext();
                 if(this.isPlaying) { this.audio.pause(); document.getElementById('play-pause-btn').innerText = "PLAY"; } 
-                else { if (this.ctx.state === 'suspended') this.ctx.resume(); this.audio.play(); document.getElementById('play-pause-btn').innerText = "PAUSE"; }
+                else { 
+                    muteAutoAudio();
+                    if (this.ctx.state === 'suspended') this.ctx.resume(); this.audio.play(); document.getElementById('play-pause-btn').innerText = "PAUSE"; 
+                }
                 this.isPlaying = !this.isPlaying;
             }
             next() {
@@ -978,8 +1132,8 @@
             }
         }
 
-        /* --- ЛОГИКА АНИМАЦИИ ЗАПУСКА --- */
         function startProjectSequence() {
+            document.body.classList.add('no-scroll');
             const sequence = document.getElementById('launch-sequence');
             const logContainer = document.getElementById('launch-log-container');
             const percent = document.getElementById('launch-percent');
@@ -993,7 +1147,6 @@
             sequence.style.display = 'flex';
             gsap.fromTo(sequence, { opacity: 0 }, { opacity: 1, duration: 0.5 });
 
-            // Матричный дождь (в белых тонах)
             const chars = "RAWCORE01X_#!?";
             const fontSize = 14;
             const columns = canvas.width / fontSize;
@@ -1052,26 +1205,63 @@
             }, 5500); 
         }
 
-        function openArchive() { document.getElementById('archive-modal').style.display = 'block'; gsap.to('#archive-modal', { opacity: 1 }); }
-        function closeArchive() { gsap.to('#archive-modal', { opacity: 0, onComplete: () => document.getElementById('archive-modal').style.display = 'none' }); }
-        function openInfo() { document.getElementById('info-modal').style.display = 'block'; setTimeout(() => document.getElementById('info-modal').classList.add('active'), 10); gsap.to('#info-modal', { opacity: 1 }); }
-        function closeInfo() { document.getElementById('info-modal').classList.remove('active'); gsap.to('#info-modal', { opacity: 0, onComplete: () => document.getElementById('info-modal').style.display = 'none' }); }
-        function openPrototypes() { document.getElementById('proto-modal').style.display = 'flex'; gsap.to('#proto-modal', { opacity: 1 }); renderVersions('hono'); renderVersions('aurora'); }
-        function closePrototypes() { gsap.to('#proto-modal', { opacity: 0, onComplete: () => document.getElementById('proto-modal').style.display = 'none' }); }
-        function openAccess() { accessAttempts = 3; document.getElementById('access-status').innerText = 'AWAITING INPUT (ATTEMPTS: 3)'; document.getElementById('access-overlay').style.display = 'flex'; gsap.to('#access-overlay', { opacity: 1 }); document.getElementById('code-input').focus(); }
-        function closeAccess() { gsap.to('#access-overlay', { opacity: 0, onComplete: () => document.getElementById('access-overlay').style.display = 'none' }); }
+        function openArchive() { document.body.classList.add('no-scroll'); document.getElementById('archive-modal').style.display = 'block'; gsap.to('#archive-modal', { opacity: 1 }); }
+        function closeArchive() { document.body.classList.remove('no-scroll'); gsap.to('#archive-modal', { opacity: 0, onComplete: () => document.getElementById('archive-modal').style.display = 'none' }); }
+        
+        function openInfo() { 
+            document.body.classList.add('no-scroll'); 
+            const infoModal = document.getElementById('info-modal');
+            infoModal.style.display = 'block'; 
+            setTimeout(() => infoModal.classList.add('active'), 10); 
+            gsap.to(infoModal, { opacity: 1 }); 
+        }
+        function closeInfo() { 
+            document.body.classList.remove('no-scroll'); 
+            const infoModal = document.getElementById('info-modal');
+            infoModal.classList.remove('active'); 
+            gsap.to(infoModal, { opacity: 0, onComplete: () => infoModal.style.display = 'none' }); 
+        }
+
+        function openPrototypes() { document.body.classList.add('no-scroll'); document.getElementById('proto-modal').style.display = 'flex'; gsap.to('#proto-modal', { opacity: 1 }); renderVersions('hono'); renderVersions('aurora'); }
+        function closePrototypes() { document.body.classList.remove('no-scroll'); gsap.to('#proto-modal', { opacity: 0, onComplete: () => document.getElementById('proto-modal').style.display = 'none' }); }
+        
+        function openAccess() { document.body.classList.add('no-scroll'); accessAttempts = 3; document.getElementById('access-status').innerText = 'AWAITING INPUT (ATTEMPTS: 3)'; document.getElementById('access-overlay').style.display = 'flex'; gsap.to('#access-overlay', { opacity: 1 }); document.getElementById('code-input').focus(); }
+        function closeAccess() { document.body.classList.remove('no-scroll'); gsap.to('#access-overlay', { opacity: 0, onComplete: () => document.getElementById('access-overlay').style.display = 'none' }); }
         function unlockSecret() { document.getElementById('access-overlay').style.display = 'none'; document.getElementById('gallery-overlay').style.display = 'block'; }
 
         function openModal(p) {
+            document.body.classList.add('no-scroll');
             const m = document.getElementById('modal');
             document.getElementById('modal-title').innerText = p.title;
             document.getElementById('modal-desc').innerText = p.desc;
-            document.getElementById('modal-img').src = p.img;
+            
+            const imgElement = document.getElementById('modal-img');
+            if (p.img === 'нет доступа') {
+                imgElement.style.display = 'none';
+                let placeholder = document.getElementById('access-denied-placeholder');
+                if (!placeholder) {
+                    placeholder = document.createElement('div');
+                    placeholder.id = 'access-denied-placeholder';
+                    placeholder.style.cssText = "width:100%; aspect-ratio:16/9; display:flex; align-items:center; justify-content:center; background:#f0f0f0; color:#000; font-family:var(--f-head); font-size:18px; border:1px solid #eee;";
+                    imgElement.parentNode.insertBefore(placeholder, imgElement);
+                }
+                placeholder.innerText = 'НЕТ ДОСТУПА';
+                placeholder.style.display = 'flex';
+            } else {
+                imgElement.style.display = 'block';
+                imgElement.src = p.img;
+                const placeholder = document.getElementById('access-denied-placeholder');
+                if (placeholder) placeholder.style.display = 'none';
+            }
+
+            const modalLink = document.getElementById('modal-link');
+            modalLink.href = p.link;
+            
             document.getElementById('player-ui').style.display = p.hasPlayer ? 'block' : 'none';
             document.getElementById('audio-trigger').onclick = () => app.audio.init(p.audio);
             m.style.display = 'block'; setTimeout(() => m.classList.add('active'), 10); gsap.to(m, { opacity: 1 });
         }
-        function closeModal() { app.audio.stop(); document.getElementById('modal').classList.remove('active'); gsap.to('#modal', { opacity: 0, onComplete: () => document.getElementById('modal').style.display = 'none' }); }
+        function closeModal() { document.body.classList.remove('no-scroll'); app.audio.stop(); document.getElementById('modal').classList.remove('active'); gsap.to('#modal', { opacity: 0, onComplete: () => document.getElementById('modal').style.display = 'none' }); }
 
         function changeProject(dir) {
             const cards = ['proto-hono', 'proto-aurora'];
@@ -1082,6 +1272,7 @@
 
         function renderVersions(proj) {
             const nav = document.getElementById(`${proj}-versions`);
+            if(!nav) return;
             nav.innerHTML = '';
             PROTO_DATA[proj].forEach((d, i) => {
                 const b = document.createElement('div');
