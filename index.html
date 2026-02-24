@@ -250,6 +250,52 @@
         .contact-label { font-size: 10px; letter-spacing: 2px; color: #888; text-transform: uppercase; }
         .contact-value { font-family: var(--f-head); font-size: 16px; }
 
+        /* --- VIDEO SECTION --- */
+        .video-section {
+            grid-column: 2; padding: 100px 0;
+            display: flex; flex-direction: column; gap: 40px;
+            opacity: 0; transform: translateY(50px);
+            transition: 1s var(--easing);
+            pointer-events: auto;
+            border-top: 1px solid var(--c-grid);
+        }
+        .video-section.visible { opacity: 1; transform: translateY(0); }
+        .video-container {
+            position: relative; width: 100%;
+            border: 1px solid var(--c-accent); background: #000;
+            overflow: hidden;
+        }
+        .video-container video {
+            width: 100%; display: block;
+            filter: grayscale(1); transition: filter 0.8s var(--easing);
+        }
+        .video-container.playing video { filter: grayscale(0); }
+        
+        .video-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(15px);
+            display: flex; justify-content: center; align-items: center;
+            transition: 0.8s var(--easing); z-index: 10;
+        }
+        .video-overlay span {
+            font-family: var(--f-head); font-size: 18px; color: var(--c-text);
+            letter-spacing: 5px; background: rgba(255,255,255,0.8);
+            padding: 15px 30px; border: 1px solid var(--c-accent);
+            transition: 0.3s;
+        }
+        .video-overlay:hover span { background: var(--c-accent); color: #fff; }
+        
+        .video-container.playing .video-overlay {
+            background: rgba(0,0,0,0); backdrop-filter: blur(0px); opacity: 0;
+        }
+        .video-container:hover.playing .video-overlay {
+            opacity: 1; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px);
+        }
+        .video-container:hover.playing .video-overlay span {
+            font-size: 12px; padding: 10px 20px;
+            background: var(--c-accent); color: #fff; border-color: transparent;
+        }
+
         .status-panel {
             grid-column: 2; height: 100px;
             display: flex; justify-content: space-between; align-items: flex-end;
@@ -714,7 +760,7 @@
                 <h1 class="hero-title">В СИСТЕМУ</h1>
                 <h1 class="hero-title solid">В СИСТЕМУ</h1>
             </div>
-            <p class="hero-desc">Портфолио UI/UX Дизайна, музыки и кода.</p>
+            <p class="hero-desc">Портфолио <3</p>
             <button class="btn-main mouse-hover" id="explore-btn">Запустить Проект</button>
         </div>
 
@@ -730,11 +776,22 @@
                 <a href="https://music.yandex.com/artist/23953965" target="_blank" class="contact-item mouse-hover">
                     <img src="https://cdn-icons-png.flaticon.com/512/825/825590.png" class="contact-icon" alt="Yandex Music">
                     <div class="contact-label">Yandex Music</div>
-                    <div class="contact-value">Artist Profile</div>
+                    <div class="contact-value">Artist Profile (old)</div>
                 </a>
                 <div class="contact-item" style="grid-column: 1 / -1; padding: 20px;">
                     <div class="contact-label">Spotify Stream</div>
                     <iframe data-testid="embed-iframe" style="border-radius:12px; margin-top: 15px;" src="https://open.spotify.com/embed/artist/2ENsygCA7xxHVhG2YmPjT2?utm_source=generator&theme=0" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <div class="video-section" id="video-section">
+            <div class="hero-label">RECENTLY_CREATED</div>
+            <h2 class="projects-header">LATEST_VISUALS</h2>
+            <div class="video-container" id="video-container">
+                <video id="recent-video" src="video/video.mp4" playsinline></video>
+                <div class="video-overlay mouse-hover" id="video-overlay-btn">
+                    <span>[ PLAY VIDEO ]</span>
                 </div>
             </div>
         </div>
@@ -769,7 +826,7 @@
                 link: 'https://t.me/dir1le_bio', 
                 hasPlayer: false, 
                 showStatus: true,
-                statusText: '(проект закрыт)',
+                statusText: '(проект закрыт на время)',
                 isOnline: false
             },
             { 
@@ -792,8 +849,8 @@
                 audio: '', 
                 link: '#', 
                 hasPlayer: false, 
-                showStatus: false,
-                statusText: '',
+                showStatus: true,
+                statusText: 'закрытое тестирование',
                 isOnline: false
             }
         ];
@@ -861,6 +918,13 @@
                         const pos = section.getBoundingClientRect().top;
                         if(pos < window.innerHeight * 0.9) {
                             section.classList.add('visible');
+                        }
+                    }
+                    const vidSection = document.getElementById('video-section');
+                    if(vidSection) {
+                        const vPos = vidSection.getBoundingClientRect().top;
+                        if(vPos < window.innerHeight * 0.9) {
+                            vidSection.classList.add('visible');
                         }
                     }
                 });
@@ -1290,6 +1354,68 @@
 
         const globalAudio = new GlobalMusicPlayer();
         const app = new Core();
+
+        // Логика управления видео-секцией
+        const recentVideo = document.getElementById('recent-video');
+        const videoOverlayBtn = document.getElementById('video-overlay-btn');
+        const videoContainer = document.getElementById('video-container');
+        
+        let wasAutoAudioPlaying = false;
+        let wasGlobalAudioPlaying = false;
+
+        videoOverlayBtn.addEventListener('click', () => {
+            if (recentVideo.paused) {
+                // Ставим музыку на паузу перед проигрыванием
+                wasAutoAudioPlaying = !autoAudio.paused && !isMuted;
+                wasGlobalAudioPlaying = window.globalAudio && window.globalAudio.isPlaying;
+
+                if (wasAutoAudioPlaying) {
+                    muteAutoAudio();
+                }
+                if (wasGlobalAudioPlaying) {
+                    window.globalAudio.audio.pause();
+                    window.globalAudio.isPlaying = false;
+                    document.getElementById('play-pause-btn').innerText = "PLAY";
+                }
+
+                recentVideo.play();
+                videoContainer.classList.add('playing');
+                videoOverlayBtn.querySelector('span').innerText = '[ PAUSE ]';
+            } else {
+                recentVideo.pause();
+                videoContainer.classList.remove('playing');
+                videoOverlayBtn.querySelector('span').innerText = '[ PLAY VIDEO ]';
+
+                // Возобновляем музыку, если она играла
+                if (wasAutoAudioPlaying && !isMuted) {
+                    autoAudio.play();
+                    gsap.to(autoAudio, { volume: 0.5, duration: 1 });
+                }
+                if (wasGlobalAudioPlaying && window.globalAudio) {
+                    if (window.globalAudio.ctx && window.globalAudio.ctx.state === 'suspended') window.globalAudio.ctx.resume();
+                    window.globalAudio.audio.play();
+                    window.globalAudio.isPlaying = true;
+                    document.getElementById('play-pause-btn').innerText = "PAUSE";
+                }
+            }
+        });
+
+        recentVideo.addEventListener('ended', () => {
+            videoContainer.classList.remove('playing');
+            videoOverlayBtn.querySelector('span').innerText = '[ PLAY VIDEO ]';
+            
+            if (wasAutoAudioPlaying && !isMuted) {
+                autoAudio.play();
+                gsap.to(autoAudio, { volume: 0.5, duration: 1 });
+            }
+            if (wasGlobalAudioPlaying && window.globalAudio) {
+                if (window.globalAudio.ctx && window.globalAudio.ctx.state === 'suspended') window.globalAudio.ctx.resume();
+                window.globalAudio.audio.play();
+                window.globalAudio.isPlaying = true;
+                document.getElementById('play-pause-btn').innerText = "PAUSE";
+            }
+        });
+
     </script>
 </body>
 </html>
